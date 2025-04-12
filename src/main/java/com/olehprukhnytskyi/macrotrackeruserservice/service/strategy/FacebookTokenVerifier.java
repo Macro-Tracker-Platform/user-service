@@ -31,6 +31,9 @@ public class FacebookTokenVerifier implements SocialTokenVerifier {
 
     @Override
     public SocialUserPayload verify(String token) {
+        if (token == null || token.isBlank()) {
+            throw new TokenVerificationException("Token is not provided or it is blank");
+        }
         try {
             String tokenDebugUrl = "https://graph.facebook.com/debug_token"
                     + "?input_token=" + token + "&access_token=" + appId + "|" + appSecret;
