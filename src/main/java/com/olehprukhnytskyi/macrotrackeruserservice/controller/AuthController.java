@@ -4,6 +4,7 @@ import com.olehprukhnytskyi.macrotrackeruserservice.dto.ApiResponse;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.AuthResponse;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.SocialTokenRequest;
 import com.olehprukhnytskyi.macrotrackeruserservice.service.AuthService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -19,7 +20,7 @@ public class AuthController {
 
     @PostMapping("/social")
     public ResponseEntity<ApiResponse<AuthResponse>> authenticateWithSocial(
-            @RequestBody SocialTokenRequest request) {
+            @RequestBody @Valid SocialTokenRequest request) {
         String jwtToken = authService.authenticateWithSocial(
                 request.getProvider(), request.getToken());
         return ResponseEntity.ok(ApiResponse.success(new AuthResponse(jwtToken)));
