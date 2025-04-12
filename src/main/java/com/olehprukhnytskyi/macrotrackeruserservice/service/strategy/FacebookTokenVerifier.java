@@ -4,6 +4,7 @@ import com.olehprukhnytskyi.macrotrackeruserservice.dto.FacebookTokenDebugRespon
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.FacebookUserResponse;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.SocialUserPayload;
 import com.olehprukhnytskyi.macrotrackeruserservice.exception.TokenVerificationException;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
@@ -13,12 +14,15 @@ import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestTemplate;
 
 @Component
+@RequiredArgsConstructor
 public class FacebookTokenVerifier implements SocialTokenVerifier {
     @Value("${social.facebook.app_id}")
     private String appId;
+
     @Value("${social.facebook.app_secret}")
     private String appSecret;
-    private final RestTemplate restTemplate = new RestTemplate();
+
+    private final RestTemplate restTemplate;
 
     @Override
     public boolean supports(String provider) {
@@ -29,8 +33,7 @@ public class FacebookTokenVerifier implements SocialTokenVerifier {
     public SocialUserPayload verify(String token) {
         try {
             String tokenDebugUrl = "https://graph.facebook.com/debug_token"
-                    + "?input_token=" + token
-                    + "&access_token=" + appId + "|" + appSecret;
+                    + "?input_token=" + token + "&access_token=" + appId + "|" + appSecret;
             ResponseEntity<FacebookTokenDebugResponse> response = restTemplate.exchange(
                     tokenDebugUrl,
                     HttpMethod.GET,
@@ -46,8 +49,7 @@ public class FacebookTokenVerifier implements SocialTokenVerifier {
             }
 
             String userInfoUrl = "https://graph.facebook.com/me"
-                    + "?fields=id,name,email"
-                    + "&access_token=" + token;
+                    + "?fields=id,name,email&access_token=" + token;
             ResponseEntity<FacebookUserResponse> userResponse = restTemplate.exchange(
                     userInfoUrl,
                     HttpMethod.GET,

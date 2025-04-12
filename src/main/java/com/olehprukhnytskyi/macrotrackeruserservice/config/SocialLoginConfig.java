@@ -7,11 +7,17 @@ import java.util.Collections;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.client.RestTemplate;
 
 @Configuration
-public class GoogleConfig {
+public class SocialLoginConfig {
     @Value("${social.google.client_id}")
     private String clientId;
+
+    @Bean
+    public RestTemplate restTemplate() {
+        return new RestTemplate();
+    }
 
     @Bean
     public GoogleIdTokenVerifier googleIdTokenVerifier() {
