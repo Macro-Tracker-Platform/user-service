@@ -19,15 +19,16 @@ public class GoogleTokenVerifier implements SocialTokenVerifier {
 
     @Override
     public SocialUserPayload verify(String token) {
+        GoogleIdToken idToken;
         try {
-            GoogleIdToken idToken = googleIdTokenVerifier.verify(token);
-            if (idToken != null) {
-                GoogleIdToken.Payload payload = idToken.getPayload();
-                return new SocialUserPayload(payload.getEmail());
-            }
-            throw new TokenVerificationException("Google token is invalid or malformed");
+            idToken = googleIdTokenVerifier.verify(token);
         } catch (Exception e) {
             throw new TokenVerificationException("Unable to verify Google token", e);
         }
+        if (idToken != null && idToken.getPayload() != null) {
+            GoogleIdToken.Payload payload = idToken.getPayload();
+            return new SocialUserPayload(payload.getEmail());
+        }
+        throw new TokenVerificationException("Google token is invalid or malformed");
     }
 }
