@@ -23,21 +23,21 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<AuthResponseDto>> login(
             @RequestBody @Valid LoginRequestDto requestDto) {
-        String jwtToken = authService.login(requestDto);
-        return ResponseEntity.ok(ApiResponse.success(new AuthResponseDto(jwtToken)));
+        String token = authService.login(requestDto);
+        return ResponseEntity.ok(ApiResponse.success(new AuthResponseDto(token)));
     }
 
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<AuthResponseDto>> register(
             @RequestBody @Valid RegisterRequestDto requestDto) {
-        String jwtToken = authService.register(requestDto);
-        return ResponseEntity.ok(ApiResponse.success(new AuthResponseDto(jwtToken)));
+        String token = authService.register(requestDto);
+        return ResponseEntity.ok(ApiResponse.success(new AuthResponseDto(token)));
     }
 
     @PostMapping("/social")
     public ResponseEntity<ApiResponse<AuthResponseDto>> authenticateWithSocial(
             @RequestBody @Valid SocialTokenRequestDto requestDto) {
-        String jwtToken = authService.authenticateWithSocial(requestDto);
-        return ResponseEntity.ok(ApiResponse.success(new AuthResponseDto(jwtToken)));
+        String token = authService.authenticateWithSocial(requestDto);
+        return ResponseEntity.ok(ApiResponse.success(new AuthResponseDto(token)));
     }
 }

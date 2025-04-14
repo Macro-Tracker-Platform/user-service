@@ -67,7 +67,7 @@ class AuthControllerTest {
 				.success(new AuthResponseDto("jwt_token"));
 		String expected = objectMapper.writeValueAsString(responseDto);
 
-		given(jwtUtil.generateJwtToken(any())).willReturn("jwt_token");
+		given(jwtUtil.generateToken(any())).willReturn("jwt_token");
 
 		// When
 		MvcResult mvcResult = mockMvc.perform(
@@ -144,7 +144,7 @@ class AuthControllerTest {
 		ApiResponse<AuthResponseDto> responseDto = ApiResponse
 				.success(new AuthResponseDto("jwt_token"));
 
-		given(jwtUtil.generateJwtToken(any())).willReturn("jwt_token");
+		given(jwtUtil.generateToken(any())).willReturn("jwt_token");
 
 		// When
 		MvcResult mvcResult = mockMvc.perform(
@@ -179,7 +179,7 @@ class AuthControllerTest {
 
 		SocialUserDetails socialUserDetails = new SocialUserDetails("test@example.com");
 
-		given(jwtUtil.generateJwtToken(any())).willReturn("jwt_token");
+		given(jwtUtil.generateToken(any())).willReturn("jwt_token");
 		given(tokenVerificationService.verifyToken(any(), any())).willReturn(socialUserDetails);
 
 		// When
@@ -211,7 +211,7 @@ class AuthControllerTest {
 
 		SocialUserDetails socialUserDetails = new SocialUserDetails("test@example.com");
 
-		given(jwtUtil.generateJwtToken(any())).willReturn("jwt_token");
+		given(jwtUtil.generateToken(any())).willReturn("jwt_token");
 		given(tokenVerificationService.verifyToken(any(), any())).willReturn(socialUserDetails);
 
 		// When

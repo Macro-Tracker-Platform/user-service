@@ -95,7 +95,7 @@ class AuthServiceImplTest {
 		userFromDb.setPassword(BCrypt.hashpw("password", BCrypt.gensalt()));
 
 		when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(userFromDb));
-		when(jwtUtil.generateJwtToken(userFromDb)).thenReturn("jwt_token");
+		when(jwtUtil.generateToken(userFromDb)).thenReturn("jwt_token");
 
 		// When
 		String actualJwt = authService.login(loginRequestDto);
@@ -137,7 +137,7 @@ class AuthServiceImplTest {
 
 		when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.empty());
 		when(userRepository.save(any())).thenReturn(userFromDb);
-		when(jwtUtil.generateJwtToken(userFromDb)).thenReturn("jwt_token");
+		when(jwtUtil.generateToken(userFromDb)).thenReturn("jwt_token");
 
 		// When
 		String actualJwt = authService.register(registerRequestDto);
@@ -165,7 +165,7 @@ class AuthServiceImplTest {
 		when(tokenVerificationService.verifyToken("test_token", "google")).thenReturn(userPayload);
 		when(userRepository.findByEmail(anyString())).thenReturn(Optional.empty());
 		when(userRepository.save(any(User.class))).thenReturn(user);
-		when(jwtUtil.generateJwtToken(any())).thenReturn("jwt_token");
+		when(jwtUtil.generateToken(any())).thenReturn("jwt_token");
 
 		// When
 		String actualJwt = authService.authenticateWithSocial(tokenRequestDto);
@@ -193,7 +193,7 @@ class AuthServiceImplTest {
 
 		when(tokenVerificationService.verifyToken(anyString(), anyString())).thenReturn(userPayload);
 		when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(user));
-		when(jwtUtil.generateJwtToken(any())).thenReturn("jwt_token");
+		when(jwtUtil.generateToken(any())).thenReturn("jwt_token");
 
 		// When
 		String actualJwt = authService.authenticateWithSocial(tokenRequestDto);

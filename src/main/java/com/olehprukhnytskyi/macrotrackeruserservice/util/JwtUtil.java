@@ -21,7 +21,7 @@ public class JwtUtil {
         this.expirationTime = expirationTime;
     }
 
-    public String generateJwtToken(User user) {
+    public String generateToken(User user) {
         return Jwts.builder()
                 .setSubject(user.getEmail())
                 .claim("id", user.getId())

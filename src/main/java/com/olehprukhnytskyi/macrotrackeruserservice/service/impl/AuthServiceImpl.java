@@ -24,18 +24,18 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public String login(LoginRequestDto requestDto) {
-        Optional<User> user = userRepository.findByEmail(requestDto.getEmail());
-        if (user.isEmpty() || !BCrypt.checkpw(requestDto
-                .getPassword(), user.get().getPassword())) {
+        Optional<User> userFromDb = userRepository.findByEmail(requestDto.getEmail());
+        if (userFromDb.isEmpty() || !BCrypt.checkpw(requestDto
+                .getPassword(), userFromDb.get().getPassword())) {
             throw new AuthenticationException("Invalid email or password");
         }
-        return jwtUtil.generateJwtToken(user.get());
+        return jwtUtil.generateToken(userFromDb.get());
     }
 
     @Override
     public String register(RegisterRequestDto requestDto) {
-        Optional<User> userFromDatabase = userRepository.findByEmail(requestDto.getEmail());
-        if (userFromDatabase.isPresent()) {
+        Optional<User> userFromDb = userRepository.findByEmail(requestDto.getEmail());
+        if (userFromDb.isPresent()) {
             throw new AuthenticationException("An account with this email already exists");
         }
         String hashedPassword = BCrypt.hashpw(requestDto.getPassword(), BCrypt.gensalt());
@@ -43,20 +43,20 @@ public class AuthServiceImpl implements AuthService {
         user.setEmail(requestDto.getEmail());
         user.setPassword(hashedPassword);
         user.setAuthProvider("local");
-        return jwtUtil.generateJwtToken(userRepository.save(user));
+        return jwtUtil.generateToken(userRepository.save(user));
     }
 
     @Override
     public String authenticateWithSocial(SocialTokenRequestDto requestDto) {
-        SocialUserDetails payload = tokenVerificationService.verifyToken(
+        SocialUserDetails userDetails = tokenVerificationService.verifyToken(
                 requestDto.getToken(), requestDto.getProvider());
-        User user = userRepository.findByEmail(payload.getEmail())
+        User userFromDb = userRepository.findByEmail(userDetails.getEmail())
                 .orElseGet(() -> {
                     User newUser = new User();
-                    newUser.setEmail(payload.getEmail());
+                    newUser.setEmail(userDetails.getEmail());
                     newUser.setAuthProvider(requestDto.getProvider());
                     return userRepository.save(newUser);
                 });
-        return jwtUtil.generateJwtToken(user);
+        return jwtUtil.generateToken(userFromDb);
     }
 }
