@@ -1,8 +1,8 @@
 package com.olehprukhnytskyi.macrotrackeruserservice.service.strategy;
 
-import com.olehprukhnytskyi.macrotrackeruserservice.dto.FacebookTokenDebugResponse;
-import com.olehprukhnytskyi.macrotrackeruserservice.dto.FacebookUserResponse;
-import com.olehprukhnytskyi.macrotrackeruserservice.dto.SocialUserPayload;
+import com.olehprukhnytskyi.macrotrackeruserservice.dto.FacebookTokenDebugResponseDto;
+import com.olehprukhnytskyi.macrotrackeruserservice.dto.FacebookUserResponseDto;
+import com.olehprukhnytskyi.macrotrackeruserservice.dto.SocialUserDetails;
 import com.olehprukhnytskyi.macrotrackeruserservice.exception.TokenVerificationException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -30,39 +30,39 @@ public class FacebookTokenVerifier implements SocialTokenVerifier {
     }
 
     @Override
-    public SocialUserPayload verify(String token) {
+    public SocialUserDetails verify(String token) {
         if (token == null || token.isBlank()) {
             throw new TokenVerificationException("Token is not provided or it is blank");
         }
         try {
             String tokenDebugUrl = "https://graph.facebook.com/debug_token"
                     + "?input_token=" + token + "&access_token=" + appId + "|" + appSecret;
-            ResponseEntity<FacebookTokenDebugResponse> response = restTemplate.exchange(
+            ResponseEntity<FacebookTokenDebugResponseDto> response = restTemplate.exchange(
                     tokenDebugUrl,
                     HttpMethod.GET,
                     null,
-                    FacebookTokenDebugResponse.class
+                    FacebookTokenDebugResponseDto.class
             );
             if (response.getBody() == null || response.getBody().getData() == null) {
                 throw new TokenVerificationException("Facebook response is empty or invalid");
             }
-            FacebookTokenDebugResponse.Data data = response.getBody().getData();
+            FacebookTokenDebugResponseDto.Data data = response.getBody().getData();
             if (!data.isValid() || !appId.equals(data.getAppId())) {
                 throw new TokenVerificationException("Invalid Facebook token");
             }
 
             String userInfoUrl = "https://graph.facebook.com/me"
                     + "?fields=id,name,email&access_token=" + token;
-            ResponseEntity<FacebookUserResponse> userResponse = restTemplate.exchange(
+            ResponseEntity<FacebookUserResponseDto> userResponse = restTemplate.exchange(
                     userInfoUrl,
                     HttpMethod.GET,
                     null,
-                    FacebookUserResponse.class
+                    FacebookUserResponseDto.class
             );
 
-            FacebookUserResponse user = userResponse.getBody();
+            FacebookUserResponseDto user = userResponse.getBody();
             if (user != null && user.getEmail() != null) {
-                return new SocialUserPayload(user.getEmail());
+                return new SocialUserDetails(user.getEmail());
             }
             throw new TokenVerificationException("Facebook user information is"
                     + " missing or malformed");

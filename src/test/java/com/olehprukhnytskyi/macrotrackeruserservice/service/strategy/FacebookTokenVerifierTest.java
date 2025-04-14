@@ -1,8 +1,8 @@
 package com.olehprukhnytskyi.macrotrackeruserservice.service.strategy;
 
-import com.olehprukhnytskyi.macrotrackeruserservice.dto.FacebookTokenDebugResponse;
-import com.olehprukhnytskyi.macrotrackeruserservice.dto.FacebookUserResponse;
-import com.olehprukhnytskyi.macrotrackeruserservice.dto.SocialUserPayload;
+import com.olehprukhnytskyi.macrotrackeruserservice.dto.FacebookTokenDebugResponseDto;
+import com.olehprukhnytskyi.macrotrackeruserservice.dto.FacebookUserResponseDto;
+import com.olehprukhnytskyi.macrotrackeruserservice.dto.SocialUserDetails;
 import com.olehprukhnytskyi.macrotrackeruserservice.exception.TokenVerificationException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -36,34 +36,34 @@ class FacebookTokenVerifierTest {
 
     @Test
     @DisplayName("Given a valid token, should return a valid user payload")
-    void verify_validToken_shouldReturnValidUserPayload() {
+    void verify_whenValidToken_shouldReturnValidUserPayload() {
         // Given
         String token = "valid_token";
 
-        FacebookTokenDebugResponse.Data data = new FacebookTokenDebugResponse.Data();
+        FacebookTokenDebugResponseDto.Data data = new FacebookTokenDebugResponseDto.Data();
         data.setValid(true);
         data.setAppId("app_id");
 
-        FacebookTokenDebugResponse mockResponse = new FacebookTokenDebugResponse();
+        FacebookTokenDebugResponseDto mockResponse = new FacebookTokenDebugResponseDto();
         mockResponse.setData(data);
         when(restTemplate.exchange(
                 ArgumentMatchers.anyString(),
                 ArgumentMatchers.eq(HttpMethod.GET),
                 ArgumentMatchers.isNull(),
-                ArgumentMatchers.eq(FacebookTokenDebugResponse.class)
+                ArgumentMatchers.eq(FacebookTokenDebugResponseDto.class)
         )).thenReturn(ResponseEntity.ok(mockResponse));
 
-        FacebookUserResponse userResponse = new FacebookUserResponse();
+        FacebookUserResponseDto userResponse = new FacebookUserResponseDto();
         userResponse.setEmail("user@example.com");
         when(restTemplate.exchange(
                 ArgumentMatchers.anyString(),
                 ArgumentMatchers.eq(HttpMethod.GET),
                 ArgumentMatchers.isNull(),
-                ArgumentMatchers.eq(FacebookUserResponse.class)
+                ArgumentMatchers.eq(FacebookUserResponseDto.class)
         )).thenReturn(ResponseEntity.ok(userResponse));
 
         // When
-        SocialUserPayload payload = facebookTokenVerifier.verify(token);
+        SocialUserDetails payload = facebookTokenVerifier.verify(token);
 
         // Then
         assertNotNull(payload);
@@ -72,7 +72,7 @@ class FacebookTokenVerifierTest {
 
     @Test
     @DisplayName("Given a null or blank token, check if it throws an exception")
-    void verify_nullOrBlankToken_shouldThrowException() {
+    void verify_whenNullOrBlankToken_shouldThrowException() {
         // When
         TokenVerificationException exceptionNull = assertThrows(
                 TokenVerificationException.class,
@@ -91,21 +91,21 @@ class FacebookTokenVerifierTest {
 
     @Test
     @DisplayName("Given an invalid token, should throw TokenVerificationException")
-    void verify_invalidToken_shouldThrowException() {
+    void verify_whenInvalidToken_shouldThrowException() {
         // Given
         String token = "invalid_token";
 
-        FacebookTokenDebugResponse.Data data = new FacebookTokenDebugResponse.Data();
+        FacebookTokenDebugResponseDto.Data data = new FacebookTokenDebugResponseDto.Data();
         data.setValid(false);
 
-        FacebookTokenDebugResponse response = new FacebookTokenDebugResponse();
+        FacebookTokenDebugResponseDto response = new FacebookTokenDebugResponseDto();
         response.setData(data);
 
         when(restTemplate.exchange(
                 ArgumentMatchers.anyString(),
                 ArgumentMatchers.eq(HttpMethod.GET),
                 ArgumentMatchers.isNull(),
-                ArgumentMatchers.eq(FacebookTokenDebugResponse.class)
+                ArgumentMatchers.eq(FacebookTokenDebugResponseDto.class)
         )).thenReturn(ResponseEntity.ok(response));
 
         // Then
@@ -113,14 +113,14 @@ class FacebookTokenVerifierTest {
     }
 
     @Test
-    @DisplayName("supports() should return true for 'facebook' provider")
-    void supports_shouldReturnTrueForFacebook() {
+    @DisplayName("Should return true, when 'facebook' provider")
+    void supports_whenFacebookProvider_shouldReturnTrue() {
         assertTrue(facebookTokenVerifier.supports("facebook"));
     }
 
     @Test
-    @DisplayName("supports() should return false for non-facebook provider")
-    void supports_shouldReturnFalseForOtherProvider() {
+    @DisplayName("Should return false, when non-facebook provider")
+    void supports_whenOtherProvider_shouldReturnFalse() {
         assertFalse(facebookTokenVerifier.supports("non_existing_provider"));
     }
 }

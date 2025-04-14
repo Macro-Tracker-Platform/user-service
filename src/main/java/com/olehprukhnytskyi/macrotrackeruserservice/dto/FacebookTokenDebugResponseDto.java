@@ -8,7 +8,7 @@ import lombok.Setter;
 @Getter
 @Setter
 @NoArgsConstructor
-public class FacebookTokenDebugResponse {
+public class FacebookTokenDebugResponseDto {
     private Data data;
 
     @Getter

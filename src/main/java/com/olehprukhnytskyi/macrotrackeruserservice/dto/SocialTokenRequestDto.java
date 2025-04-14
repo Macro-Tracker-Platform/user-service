@@ -11,7 +11,7 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class SocialTokenRequest {
+public class SocialTokenRequestDto {
     @NotNull
     @NotBlank
     private String token;

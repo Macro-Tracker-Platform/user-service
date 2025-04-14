@@ -2,7 +2,7 @@ package com.olehprukhnytskyi.macrotrackeruserservice.service.strategy;
 
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
-import com.olehprukhnytskyi.macrotrackeruserservice.dto.SocialUserPayload;
+import com.olehprukhnytskyi.macrotrackeruserservice.dto.SocialUserDetails;
 import com.olehprukhnytskyi.macrotrackeruserservice.exception.TokenVerificationException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -34,7 +34,7 @@ class GoogleTokenVerifierTest {
 
 	@Test
 	@DisplayName("Given a valid token, should return a valid user payload")
-	void verify_validToken_shouldReturnValidUserPayload() throws Exception {
+	void verify_whenValidToken_shouldReturnValidUserPayload() throws Exception {
 		// Given
 		String token = "valid_token";
 
@@ -43,15 +43,15 @@ class GoogleTokenVerifierTest {
 		when(payload.getEmail()).thenReturn("test@example.com");
 
 		// When
-		SocialUserPayload userPayload = googleTokenVerifier.verify(token);
+		SocialUserDetails userPayload = googleTokenVerifier.verify(token);
 
 		// Then
 		assertEquals("test@example.com", userPayload.getEmail());
 	}
 
 	@Test
-	@DisplayName("Given a null or blank token, check if it throws an exception")
-	void verify_nullOrBlankToken_shouldThrowException()
+	@DisplayName("Given a null or blank token, should throw an exception")
+	void verify_whenNullOrBlankToken_shouldThrowException()
 			throws GeneralSecurityException, IOException {
 		// Given
 		when(googleIdTokenVerifier.verify(googleIdToken))
@@ -74,8 +74,8 @@ class GoogleTokenVerifierTest {
 	}
 
 	@Test
-	@DisplayName("Given a malformed token, check if it throws an exception")
-	void verify_malformedToken_shouldThrowException() throws Exception {
+	@DisplayName("Given a malformed token, should throw an exception")
+	void verify_whenMalformedToken_shouldThrowException() throws Exception {
 		// Given
 		when(googleIdTokenVerifier.verify(anyString())).thenReturn(null);
 
@@ -91,14 +91,14 @@ class GoogleTokenVerifierTest {
 	}
 
 	@Test
-	@DisplayName("supports() should return true for 'google' provider")
-	void supports_shouldReturnTrueForGoogle() {
+	@DisplayName("Should return true, when 'google' provider")
+	void supports_whenGoogleProvider_shouldReturnTrue() {
 		assertTrue(googleTokenVerifier.supports("google"));
 	}
 
 	@Test
-	@DisplayName("supports() should return false for non-google provider")
-	void supports_shouldReturnFalseForOtherProvider() {
+	@DisplayName("Should return false, when non-google provider")
+	void supports_whenOtherProvider_shouldReturnFalse() {
 		assertFalse(googleTokenVerifier.supports("non_existing_provider"));
 	}
 }

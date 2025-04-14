@@ -2,7 +2,8 @@ package com.olehprukhnytskyi.macrotrackeruserservice.service.impl;
 
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.LoginRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.RegisterRequestDto;
-import com.olehprukhnytskyi.macrotrackeruserservice.dto.SocialUserPayload;
+import com.olehprukhnytskyi.macrotrackeruserservice.dto.SocialTokenRequestDto;
+import com.olehprukhnytskyi.macrotrackeruserservice.dto.SocialUserDetails;
 import com.olehprukhnytskyi.macrotrackeruserservice.exception.AuthenticationException;
 import com.olehprukhnytskyi.macrotrackeruserservice.model.User;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.UserRepository;
@@ -37,9 +38,6 @@ class AuthServiceImplTest {
 
 	@InjectMocks
 	private AuthServiceImpl authService;
-
-	private final String provider = "google";
-	private final String token = "test_token";
 
 	@Test
 	@DisplayName("Should throw an exception, when user does not exist")
@@ -156,19 +154,21 @@ class AuthServiceImplTest {
 			""")
 	void authenticateWithSocial_whenUserDoesNotExist_shouldReturnJwtToken() {
 		// Given
-		SocialUserPayload userPayload = new SocialUserPayload("test@example.com");
+		SocialUserDetails userPayload = new SocialUserDetails("test@example.com");
 
 		User user = new User();
 		user.setEmail("test@example.com");
 		user.setAuthProvider("google");
 
-		when(tokenVerificationService.verifyToken(token, provider)).thenReturn(userPayload);
+		SocialTokenRequestDto tokenRequestDto = new SocialTokenRequestDto("test_token", "google");
+
+		when(tokenVerificationService.verifyToken("test_token", "google")).thenReturn(userPayload);
 		when(userRepository.findByEmail(anyString())).thenReturn(Optional.empty());
 		when(userRepository.save(any(User.class))).thenReturn(user);
 		when(jwtUtil.generateJwtToken(any())).thenReturn("jwt_token");
 
 		// When
-		String actualJwt = authService.authenticateWithSocial(provider, token);
+		String actualJwt = authService.authenticateWithSocial(tokenRequestDto);
 
 		// Then
 		assertEquals("jwt_token", actualJwt);
@@ -183,18 +183,20 @@ class AuthServiceImplTest {
 			""")
 	void authenticateWithSocial_whenUserExists_shouldReturnJwtToken() {
 		// Given
-		SocialUserPayload userPayload = new SocialUserPayload("test@example.com");
+		SocialUserDetails userPayload = new SocialUserDetails("test@example.com");
 
 		User user = new User();
 		user.setEmail("test@example.com");
 		user.setAuthProvider("google");
+
+		SocialTokenRequestDto tokenRequestDto = new SocialTokenRequestDto("test_token", "google");
 
 		when(tokenVerificationService.verifyToken(anyString(), anyString())).thenReturn(userPayload);
 		when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(user));
 		when(jwtUtil.generateJwtToken(any())).thenReturn("jwt_token");
 
 		// When
-		String actualJwt = authService.authenticateWithSocial(provider, token);
+		String actualJwt = authService.authenticateWithSocial(tokenRequestDto);
 
 		// Then
 		assertEquals("jwt_token", actualJwt);

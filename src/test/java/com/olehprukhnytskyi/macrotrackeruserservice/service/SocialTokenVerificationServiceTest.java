@@ -1,6 +1,6 @@
 package com.olehprukhnytskyi.macrotrackeruserservice.service;
 
-import com.olehprukhnytskyi.macrotrackeruserservice.dto.SocialUserPayload;
+import com.olehprukhnytskyi.macrotrackeruserservice.dto.SocialUserDetails;
 import com.olehprukhnytskyi.macrotrackeruserservice.service.strategy.SocialTokenVerifier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -25,9 +25,6 @@ class SocialTokenVerificationServiceTest {
 
 	private SocialTokenVerificationService socialTokenVerificationService;
 
-	private final String provider = "google";
-	private final String token = "test_token";
-
 	@BeforeEach
 	void setUp() {
 		socialTokenVerificationService = new SocialTokenVerificationService(
@@ -37,30 +34,36 @@ class SocialTokenVerificationServiceTest {
 
 	@Test
 	@DisplayName("Given valid token, should return valid user payload")
-	void verifyToken_validProvider_shouldReturnPayload() {
-		SocialUserPayload expectedPayload = new SocialUserPayload("test@example.com");
+	void verifyToken_whenValidProvider_shouldReturnPayload() {
+		// Given
+		SocialUserDetails expectedPayload = new SocialUserDetails("test@example.com");
 
-		when(googleTokenVerifier.supports(provider)).thenReturn(true);
-		when(googleTokenVerifier.verify(token)).thenReturn(expectedPayload);
+		when(googleTokenVerifier.supports("google")).thenReturn(true);
+		when(googleTokenVerifier.verify("test_token")).thenReturn(expectedPayload);
 
-		SocialUserPayload result = socialTokenVerificationService.verifyToken(token, provider);
+		// When
+		SocialUserDetails result = socialTokenVerificationService.verifyToken("test_token", "google");
 
+		// Then
 		assertEquals(expectedPayload, result);
-		verify(googleTokenVerifier).verify(token);
+		verify(googleTokenVerifier).verify("test_token");
 		verifyNoInteractions(facebookTokenVerifier);
 	}
 
 	@Test
 	@DisplayName("Given unsupported provider, should throw an exception")
-	void verifyToken_unsupportedProvider_shouldThrowException() {
-		when(googleTokenVerifier.supports(provider)).thenReturn(false);
-		when(facebookTokenVerifier.supports(provider)).thenReturn(false);
+	void verifyToken_whenUnsupportedProvider_shouldThrowException() {
+		// Given
+		when(googleTokenVerifier.supports("google")).thenReturn(false);
+		when(facebookTokenVerifier.supports("google")).thenReturn(false);
 
+		// When
 		IllegalArgumentException exception = assertThrows(
 				IllegalArgumentException.class,
-				() -> socialTokenVerificationService.verifyToken(token, provider)
+				() -> socialTokenVerificationService.verifyToken("test_token", "google")
 		);
 
+		// Then
 		assertEquals("Unsupported provider: google", exception.getMessage());
 	}
 }
