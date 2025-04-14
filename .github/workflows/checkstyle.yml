@@ -1,0 +1,27 @@
+name: Checkstyle
+
+on:  
+  pull_request:
+    branches:
+      - main
+      - dev
+      - 'feature/*'
+      - 'hotfix/*'
+      - 'release/*'
+
+jobs:
+  checkstyle:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Run Checkstyle
+        run: mvn checkstyle:check -Dmaven.checkstyle.plugin.configLocation=https://raw.githubusercontent.com/mate-academy/style-guides/master/java/checkstyle.xml
