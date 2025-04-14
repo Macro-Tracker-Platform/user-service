@@ -36,7 +36,7 @@ public class AuthServiceImpl implements AuthService {
     public String register(RegisterRequestDto requestDto) {
         Optional<User> userFromDatabase = userRepository.findByEmail(requestDto.getEmail());
         if (userFromDatabase.isPresent()) {
-            throw new IllegalStateException("An account with this email already exists");
+            throw new AuthenticationException("An account with this email already exists");
         }
         String hashedPassword = BCrypt.hashpw(requestDto.getPassword(), BCrypt.gensalt());
         User user = new User();

@@ -117,7 +117,7 @@ class AuthServiceImplTest {
 		when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(userFromDb));
 
 		// When
-		IllegalStateException exception = assertThrows(IllegalStateException.class,
+		AuthenticationException exception = assertThrows(AuthenticationException.class,
 				() -> authService.register(registerRequestDto));
 
 		// Then
