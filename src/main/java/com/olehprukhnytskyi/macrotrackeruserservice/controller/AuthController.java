@@ -28,7 +28,7 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<ApiResponse<AuthResponseDto>> login(
+    public ResponseEntity<ApiResponse<AuthResponseDto>> register(
             @RequestBody @Valid RegisterRequestDto requestDto) {
         String jwtToken = authService.register(requestDto);
         return ResponseEntity.ok(ApiResponse.success(new AuthResponseDto(jwtToken)));
