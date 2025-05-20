@@ -5,9 +5,9 @@ import com.olehprukhnytskyi.macrotrackeruserservice.dto.RegisterRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.SocialTokenRequestDto;
 
 public interface AuthService {
-    String login(LoginRequestDto requestDto);
+    String login(LoginRequestDto loginDto);
 
-    String register(RegisterRequestDto requestDto);
+    String register(RegisterRequestDto registerDto);
 
-    String authenticateWithSocial(SocialTokenRequestDto requestDto);
+    String authenticateWithSocial(SocialTokenRequestDto tokenDto);
 }

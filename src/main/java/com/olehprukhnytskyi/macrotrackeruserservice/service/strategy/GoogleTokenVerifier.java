@@ -4,6 +4,7 @@ import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.SocialUserDetails;
 import com.olehprukhnytskyi.macrotrackeruserservice.exception.TokenVerificationException;
+import com.olehprukhnytskyi.macrotrackeruserservice.util.AuthProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -13,8 +14,8 @@ public class GoogleTokenVerifier implements SocialTokenVerifier {
     private final GoogleIdTokenVerifier googleIdTokenVerifier;
 
     @Override
-    public boolean supports(String provider) {
-        return "google".equalsIgnoreCase(provider);
+    public boolean supports(AuthProvider provider) {
+        return provider == AuthProvider.GOOGLE;
     }
 
     @Override

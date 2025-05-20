@@ -2,6 +2,8 @@ package com.olehprukhnytskyi.macrotrackeruserservice.exception;
 
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.ApiError;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.ApiResponse;
+import java.util.HashMap;
+import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -44,5 +46,12 @@ public class GlobalExceptionHandler {
         ApiError error = new ApiError("server", "An unexpected error occurred");
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ApiResponse.error(error));
+    }
+
+    @ExceptionHandler(NotFoundException.class)
+    public ResponseEntity<Map<String, String>> handleNotFound(NotFoundException ex) {
+        Map<String, String> error = new HashMap<>();
+        error.put("error", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
     }
 }

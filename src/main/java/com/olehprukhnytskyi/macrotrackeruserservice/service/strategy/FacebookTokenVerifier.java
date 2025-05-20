@@ -4,6 +4,7 @@ import com.olehprukhnytskyi.macrotrackeruserservice.dto.FacebookTokenDebugRespon
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.FacebookUserResponseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.SocialUserDetails;
 import com.olehprukhnytskyi.macrotrackeruserservice.exception.TokenVerificationException;
+import com.olehprukhnytskyi.macrotrackeruserservice.util.AuthProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpMethod;
@@ -25,8 +26,8 @@ public class FacebookTokenVerifier implements SocialTokenVerifier {
     private final RestTemplate restTemplate;
 
     @Override
-    public boolean supports(String provider) {
-        return "facebook".equalsIgnoreCase(provider);
+    public boolean supports(AuthProvider provider) {
+        return provider == AuthProvider.FACEBOOK;
     }
 
     @Override
