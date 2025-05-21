@@ -1,11 +1,34 @@
 package com.olehprukhnytskyi.macrotrackeruserservice.controller;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.olehprukhnytskyi.macrotrackeruserservice.dto.*;
+import com.olehprukhnytskyi.macrotrackeruserservice.client.GoalClient;
+import com.olehprukhnytskyi.macrotrackeruserservice.dto.ApiError;
+import com.olehprukhnytskyi.macrotrackeruserservice.dto.ApiResponse;
+import com.olehprukhnytskyi.macrotrackeruserservice.dto.AuthResponseDto;
+import com.olehprukhnytskyi.macrotrackeruserservice.dto.GoalResponseDto;
+import com.olehprukhnytskyi.macrotrackeruserservice.dto.LoginRequestDto;
+import com.olehprukhnytskyi.macrotrackeruserservice.dto.RegisterRequestDto;
+import com.olehprukhnytskyi.macrotrackeruserservice.dto.SocialTokenRequestDto;
+import com.olehprukhnytskyi.macrotrackeruserservice.dto.SocialUserDetails;
+import com.olehprukhnytskyi.macrotrackeruserservice.dto.UserDetailsRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.UserRepository;
 import com.olehprukhnytskyi.macrotrackeruserservice.service.SocialTokenVerificationService;
+import com.olehprukhnytskyi.macrotrackeruserservice.util.ActivityLevel;
+import com.olehprukhnytskyi.macrotrackeruserservice.util.AuthProvider;
+import com.olehprukhnytskyi.macrotrackeruserservice.util.Gender;
+import com.olehprukhnytskyi.macrotrackeruserservice.util.Goal;
 import com.olehprukhnytskyi.macrotrackeruserservice.util.JwtUtil;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,217 +42,230 @@ import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class AuthControllerTest {
-	protected static MockMvc mockMvc;
+    protected static MockMvc mockMvc;
 
-	@MockitoBean
-	private JwtUtil jwtUtil;
+    @MockitoBean
+    private JwtUtil jwtUtil;
+    @MockitoBean
+    private SocialTokenVerificationService tokenVerificationService;
+    @MockitoBean
+    private GoalClient goalClient;
 
-	@MockitoBean
-	private SocialTokenVerificationService tokenVerificationService;
+    @Autowired
+    private ObjectMapper objectMapper;
 
-	@Autowired
-	private ObjectMapper objectMapper;
+    @MockitoSpyBean
+    private UserRepository userRepository;
 
-	@MockitoSpyBean
-	private UserRepository userRepository;
+    private UserDetailsRequestDto userDetailsDto;
 
-	@BeforeAll
-	static void beforeAll(
-			@Autowired WebApplicationContext applicationContext
-			) {
-		mockMvc = MockMvcBuilders
-				.webAppContextSetup(applicationContext)
-				.build();
-	}
+    @BeforeAll
+    static void beforeAll(
+            @Autowired WebApplicationContext applicationContext
+    ) {
+        mockMvc = MockMvcBuilders
+                .webAppContextSetup(applicationContext)
+                .build();
+    }
 
-	@Sql(scripts = "classpath:database/add-user-for-auth.sql",
-			executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
-	@Sql(scripts = "classpath:database/remove-user-for-auth.sql",
-			executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
-	@Test
-	@DisplayName("When user exists, should return JWT token")
-	void login_whenUserExists_shouldReturnJwtToken() throws Exception {
-		// GIven
-		LoginRequestDto requestDto = new LoginRequestDto("test@example.com", "password");
-		String jsonRequest = objectMapper.writeValueAsString(requestDto);
+    @BeforeEach
+    void setUp() {
+        userDetailsDto = new UserDetailsRequestDto();
+        userDetailsDto.setAge(20);
+        userDetailsDto.setGoal(Goal.MAINTAIN);
+        userDetailsDto.setWeight(80);
+        userDetailsDto.setGender(Gender.MALE);
+        userDetailsDto.setHeight(180);
+        userDetailsDto.setActivityLevel(ActivityLevel.MODERATELY_ACTIVE);
+    }
 
-		ApiResponse<AuthResponseDto> responseDto = ApiResponse
-				.success(new AuthResponseDto("jwt_token"));
-		String expected = objectMapper.writeValueAsString(responseDto);
+    @Sql(scripts = "classpath:database/add-user-for-auth.sql",
+            executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
+    @Sql(scripts = "classpath:database/remove-user-for-auth.sql",
+            executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
+    @Test
+    @DisplayName("When user exists, should return JWT token")
+    void login_whenUserExists_shouldReturnJwtToken() throws Exception {
+        // GIven
+        LoginRequestDto requestDto = new LoginRequestDto("test@example.com", "password");
+        String jsonRequest = objectMapper.writeValueAsString(requestDto);
 
-		given(jwtUtil.generateToken(any())).willReturn("jwt_token");
+        ApiResponse<AuthResponseDto> responseDto = ApiResponse
+                .success(new AuthResponseDto("jwt_token"));
 
-		// When
-		MvcResult mvcResult = mockMvc.perform(
-				post("/api/auth/login")
-						.content(jsonRequest)
-						.contentType(MediaType.APPLICATION_JSON)
-				)
-				.andExpect(status().isOk())
-				.andReturn();
+        given(jwtUtil.generateToken(any())).willReturn("jwt_token");
 
-		// Then
-		assertEquals(expected, mvcResult.getResponse().getContentAsString());
-	}
+        // When
+        MvcResult mvcResult = mockMvc.perform(
+                        post("/api/auth/login")
+                                .content(jsonRequest)
+                                .contentType(MediaType.APPLICATION_JSON)
+                )
+                .andExpect(status().isOk())
+                .andReturn();
 
-	@Test
-	@DisplayName("When user does not exist, should return unauthorized status")
-	void login_whenUserDoesNotExist_shouldReturnUnauthorized() throws Exception {
-		// GIven
-		LoginRequestDto requestDto = new LoginRequestDto("test@example.com", "password");
-		String jsonRequest = objectMapper.writeValueAsString(requestDto);
+        // Then
+        String expected = objectMapper.writeValueAsString(responseDto);
+        assertEquals(expected, mvcResult.getResponse().getContentAsString());
+    }
 
-		ApiResponse<AuthResponseDto> responseDto = ApiResponse
-				.error(new ApiError("token", "Invalid email or password"));
-		String expected = objectMapper.writeValueAsString(responseDto);
+    @Test
+    @DisplayName("When user does not exist, should return unauthorized status")
+    void login_whenUserDoesNotExist_shouldReturnUnauthorized() throws Exception {
+        // GIven
+        LoginRequestDto requestDto = new LoginRequestDto("test@example.com", "password");
+        String jsonRequest = objectMapper.writeValueAsString(requestDto);
 
-		// When
-		MvcResult mvcResult = mockMvc.perform(
-						post("/api/auth/login")
-								.content(jsonRequest)
-								.contentType(MediaType.APPLICATION_JSON)
-				)
-				.andExpect(status().isUnauthorized())
-				.andReturn();
+        ApiResponse<AuthResponseDto> responseDto = ApiResponse
+                .error(new ApiError("token", "Invalid email or password"));
 
-		// Then
-		assertEquals(expected, mvcResult.getResponse().getContentAsString());
-	}
+        // When
+        MvcResult mvcResult = mockMvc.perform(
+                        post("/api/auth/login")
+                                .content(jsonRequest)
+                                .contentType(MediaType.APPLICATION_JSON)
+                )
+                .andExpect(status().isUnauthorized())
+                .andReturn();
 
-	@Sql(scripts = "classpath:database/add-user-for-auth.sql",
-			executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
-	@Sql(scripts = "classpath:database/remove-user-for-auth.sql",
-			executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
-	@Test
-	@DisplayName("When user exists, should return unauthorized status")
-	void register_whenUserExists_shouldReturnUnauthorized() throws Exception {
-		// GIven
-		RegisterRequestDto requestDto = new RegisterRequestDto("test@example.com", "password", "password");
-		String jsonRequest = objectMapper.writeValueAsString(requestDto);
+        // Then
+        String expected = objectMapper.writeValueAsString(responseDto);
+        assertEquals(expected, mvcResult.getResponse().getContentAsString());
+    }
 
-		ApiResponse<AuthResponseDto> responseDto = ApiResponse
-				.error(new ApiError("token", "An account with this email already exists"));
-		String expected = objectMapper.writeValueAsString(responseDto);
+    @Sql(scripts = "classpath:database/add-user-for-auth.sql",
+            executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
+    @Sql(scripts = "classpath:database/remove-user-for-auth.sql",
+            executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
+    @Test
+    @DisplayName("When user exists, should return unauthorized status")
+    void register_whenUserExists_shouldReturnUnauthorized() throws Exception {
+        // GIven
+        RegisterRequestDto requestDto = new RegisterRequestDto(
+                "test@example.com", "password", "password");
+        requestDto.setUserDetails(userDetailsDto);
 
-		// When
-		MvcResult mvcResult = mockMvc.perform(
-						post("/api/auth/register")
-								.content(jsonRequest)
-								.contentType(MediaType.APPLICATION_JSON)
-				)
-				.andExpect(status().isUnauthorized())
-				.andReturn();
+        String jsonRequest = objectMapper.writeValueAsString(requestDto);
+        ApiResponse<AuthResponseDto> responseDto = ApiResponse
+                .error(new ApiError("token", "An account with this email already exists"));
 
-		// Then
-		assertEquals(expected, mvcResult.getResponse().getContentAsString());
-	}
+        // When
+        MvcResult mvcResult = mockMvc.perform(
+                        post("/api/auth/register")
+                                .content(jsonRequest)
+                                .contentType(MediaType.APPLICATION_JSON)
+                )
+                .andExpect(status().isUnauthorized())
+                .andReturn();
 
-	@Test
-	@DisplayName("When user does not exist, should return JWT token")
-	void register_whenUserDoesNotExist_shouldReturnJwtToken() throws Exception {
-		// GIven
-		RegisterRequestDto requestDto = new RegisterRequestDto("test@example.com", "password", "password");
-		String jsonRequest = objectMapper.writeValueAsString(requestDto);
+        // Then
+        String expected = objectMapper.writeValueAsString(responseDto);
+        assertEquals(expected, mvcResult.getResponse().getContentAsString());
+    }
 
-		ApiResponse<AuthResponseDto> responseDto = ApiResponse
-				.success(new AuthResponseDto("jwt_token"));
+    @Test
+    @DisplayName("When user does not exist, should return JWT token")
+    void register_whenUserDoesNotExist_shouldReturnJwtToken() throws Exception {
+        // GIven
+        RegisterRequestDto requestDto = new RegisterRequestDto(
+                "test@example.com", "password", "password");
+        requestDto.setUserDetails(userDetailsDto);
 
-		given(jwtUtil.generateToken(any())).willReturn("jwt_token");
+        String jsonRequest = objectMapper.writeValueAsString(requestDto);
+        ApiResponse<AuthResponseDto> responseDto = ApiResponse
+                .success(new AuthResponseDto("jwt_token"));
 
-		// When
-		MvcResult mvcResult = mockMvc.perform(
-				post("/api/auth/register")
-						.content(jsonRequest)
-						.contentType(MediaType.APPLICATION_JSON)
-				)
-				.andExpect(status().isOk())
-				.andReturn();
+        given(jwtUtil.generateToken(any())).willReturn("jwt_token");
+        when(goalClient.calculateGoal(any())).thenReturn(new GoalResponseDto());
 
-		// Then
-		String expected = objectMapper.writeValueAsString(responseDto);
-		assertEquals(expected, mvcResult.getResponse().getContentAsString());
+        // When
+        MvcResult mvcResult = mockMvc.perform(
+                        post("/api/auth/register")
+                                .content(jsonRequest)
+                                .contentType(MediaType.APPLICATION_JSON)
+                )
+                .andExpect(status().isOk())
+                .andReturn();
 
-		// Clean up
-		userRepository.deleteAll();
-	}
+        // Then
+        String expected = objectMapper.writeValueAsString(responseDto);
+        assertEquals(expected, mvcResult.getResponse().getContentAsString());
 
-	@Sql(scripts = "classpath:database/add-user-for-auth.sql",
-			executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
-	@Sql(scripts = "classpath:database/remove-user-for-auth.sql",
-			executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
-	@Test
-	@DisplayName("When user exists, should return JWT token")
-	void authenticateWithSocial_whenUserExists_shouldReturnJwtToken() throws Exception {
-		// Given
-		SocialTokenRequestDto requestDto = new SocialTokenRequestDto("token", "google");
-		String requestJson = objectMapper.writeValueAsString(requestDto);
+        // Clean up
+        userRepository.deleteAll();
+    }
 
-		ApiResponse<AuthResponseDto> responseDto = ApiResponse
-				.success(new AuthResponseDto("jwt_token"));
+    @Sql(scripts = "classpath:database/add-user-for-auth.sql",
+            executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
+    @Sql(scripts = "classpath:database/remove-user-for-auth.sql",
+            executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
+    @Test
+    @DisplayName("When user exists, should return JWT token")
+    void authenticateWithSocial_whenUserExists_shouldReturnJwtToken() throws Exception {
+        // Given
+        SocialTokenRequestDto requestDto = new SocialTokenRequestDto(
+                "token", AuthProvider.GOOGLE);
+        requestDto.setUserDetails(userDetailsDto);
 
-		SocialUserDetails socialUserDetails = new SocialUserDetails("test@example.com");
+        String requestJson = objectMapper.writeValueAsString(requestDto);
+        ApiResponse<AuthResponseDto> responseDto = ApiResponse
+                .success(new AuthResponseDto("jwt_token"));
 
-		given(jwtUtil.generateToken(any())).willReturn("jwt_token");
-		given(tokenVerificationService.verifyToken(any(), any())).willReturn(socialUserDetails);
+        given(jwtUtil.generateToken(any())).willReturn("jwt_token");
+        given(tokenVerificationService.verifyToken(any(), any()))
+                .willReturn(new SocialUserDetails("test@example.com"));
 
-		// When
-		MvcResult mvcResult = mockMvc.perform(
-						post("/api/auth/social")
-								.content(requestJson)
-								.contentType(MediaType.APPLICATION_JSON)
-				)
-				.andExpect(status().isOk())
-				.andReturn();
+        // When
+        MvcResult mvcResult = mockMvc.perform(
+                        post("/api/auth/social")
+                                .content(requestJson)
+                                .contentType(MediaType.APPLICATION_JSON)
+                )
+                .andExpect(status().isOk())
+                .andReturn();
 
-		// Then
-		String expected = objectMapper.writeValueAsString(responseDto);
-		assertEquals(expected, mvcResult.getResponse().getContentAsString());
+        // Then
+        String expected = objectMapper.writeValueAsString(responseDto);
+        assertEquals(expected, mvcResult.getResponse().getContentAsString());
 
-		// Clean up
-		userRepository.deleteAll();
-	}
+        // Clean up
+        userRepository.deleteAll();
+    }
 
-	@Test
-	@DisplayName("When user does not exist, should return JWT token")
-	void authenticateWithSocial_whenUserDoesNotExist_shouldReturnJwtToken() throws Exception {
-		// Given
-		SocialTokenRequestDto requestDto = new SocialTokenRequestDto("token", "google");
-		String requestJson = objectMapper.writeValueAsString(requestDto);
+    @Test
+    @DisplayName("When user does not exist, should return JWT token")
+    void authenticateWithSocial_whenUserDoesNotExist_shouldReturnJwtToken() throws Exception {
+        // Given
+        SocialTokenRequestDto requestDto = new SocialTokenRequestDto(
+                "token", AuthProvider.GOOGLE);
+        requestDto.setUserDetails(userDetailsDto);
 
-		ApiResponse<AuthResponseDto> responseDto = ApiResponse
-				.success(new AuthResponseDto("jwt_token"));
+        String requestJson = objectMapper.writeValueAsString(requestDto);
+        ApiResponse<AuthResponseDto> responseDto = ApiResponse
+                .success(new AuthResponseDto("jwt_token"));
 
-		SocialUserDetails socialUserDetails = new SocialUserDetails("test@example.com");
+        given(jwtUtil.generateToken(any())).willReturn("jwt_token");
+        given(tokenVerificationService.verifyToken(any(), any()))
+                .willReturn(new SocialUserDetails("test@example.com"));
+        when(goalClient.calculateGoal(any())).thenReturn(new GoalResponseDto());
 
-		given(jwtUtil.generateToken(any())).willReturn("jwt_token");
-		given(tokenVerificationService.verifyToken(any(), any())).willReturn(socialUserDetails);
+        // When
+        MvcResult mvcResult = mockMvc.perform(
+                        post("/api/auth/social")
+                                .content(requestJson)
+                                .contentType(MediaType.APPLICATION_JSON)
+                )
+                .andExpect(status().isOk())
+                .andReturn();
 
-		// When
-		MvcResult mvcResult = mockMvc.perform(
-						post("/api/auth/social")
-								.content(requestJson)
-								.contentType(MediaType.APPLICATION_JSON)
-				)
-				.andExpect(status().isOk())
-				.andReturn();
+        // Then
+        String expected = objectMapper.writeValueAsString(responseDto);
+        assertEquals(expected, mvcResult.getResponse().getContentAsString());
+        verify(userRepository, times(1)).save(any());
 
-		// Then
-		String expected = objectMapper.writeValueAsString(responseDto);
-		assertEquals(expected, mvcResult.getResponse().getContentAsString());
-
-		verify(userRepository, times(1)).save(any());
-
-		// Clean up
-		userRepository.deleteAll();
-	}
+        // Clean up
+        userRepository.deleteAll();
+    }
 }

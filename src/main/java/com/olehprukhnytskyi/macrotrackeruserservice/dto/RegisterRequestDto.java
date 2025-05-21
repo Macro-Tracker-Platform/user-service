@@ -4,16 +4,12 @@ import com.olehprukhnytskyi.macrotrackeruserservice.validation.PasswordMatches;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
+import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 
-@Getter
-@Setter
+@Data
 @PasswordMatches
 @NoArgsConstructor
-@AllArgsConstructor
 public class RegisterRequestDto {
     @Email
     @NotNull
@@ -27,4 +23,13 @@ public class RegisterRequestDto {
     @NotNull
     @Size(min = 8, max = 64)
     private String confirmPassword;
+
+    @NotNull
+    private UserDetailsRequestDto userDetails;
+
+    public RegisterRequestDto(String email, String password, String confirmPassword) {
+        this.email = email;
+        this.password = password;
+        this.confirmPassword = confirmPassword;
+    }
 }

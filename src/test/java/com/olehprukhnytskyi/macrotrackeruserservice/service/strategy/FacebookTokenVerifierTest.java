@@ -1,9 +1,16 @@
 package com.olehprukhnytskyi.macrotrackeruserservice.service.strategy;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.when;
+
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.FacebookTokenDebugResponseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.FacebookUserResponseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.SocialUserDetails;
 import com.olehprukhnytskyi.macrotrackeruserservice.exception.TokenVerificationException;
+import com.olehprukhnytskyi.macrotrackeruserservice.util.AuthProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -16,9 +23,6 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.client.RestTemplate;
-
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class FacebookTokenVerifierTest {
@@ -38,8 +42,6 @@ class FacebookTokenVerifierTest {
     @DisplayName("Given a valid token, should return a valid user payload")
     void verify_whenValidToken_shouldReturnValidUserPayload() {
         // Given
-        String token = "valid_token";
-
         FacebookTokenDebugResponseDto.Data data = new FacebookTokenDebugResponseDto.Data();
         data.setValid(true);
         data.setAppId("app_id");
@@ -63,7 +65,7 @@ class FacebookTokenVerifierTest {
         )).thenReturn(ResponseEntity.ok(userResponse));
 
         // When
-        SocialUserDetails payload = facebookTokenVerifier.verify(token);
+        SocialUserDetails payload = facebookTokenVerifier.verify("invalid_token");
 
         // Then
         assertNotNull(payload);
@@ -93,8 +95,6 @@ class FacebookTokenVerifierTest {
     @DisplayName("Given an invalid token, should throw TokenVerificationException")
     void verify_whenInvalidToken_shouldThrowException() {
         // Given
-        String token = "invalid_token";
-
         FacebookTokenDebugResponseDto.Data data = new FacebookTokenDebugResponseDto.Data();
         data.setValid(false);
 
@@ -109,18 +109,20 @@ class FacebookTokenVerifierTest {
         )).thenReturn(ResponseEntity.ok(response));
 
         // Then
-        assertThrows(TokenVerificationException.class, () -> facebookTokenVerifier.verify(token));
+        assertThrows(TokenVerificationException.class,
+                () -> facebookTokenVerifier.verify("invalid_token"));
     }
 
     @Test
     @DisplayName("Should return true, when 'facebook' provider")
     void supports_whenFacebookProvider_shouldReturnTrue() {
-        assertTrue(facebookTokenVerifier.supports("facebook"));
+        assertTrue(facebookTokenVerifier.supports(AuthProvider.FACEBOOK));
     }
 
     @Test
     @DisplayName("Should return false, when non-facebook provider")
     void supports_whenOtherProvider_shouldReturnFalse() {
-        assertFalse(facebookTokenVerifier.supports("non_existing_provider"));
+        assertThrows(IllegalArgumentException.class, () -> facebookTokenVerifier
+                .supports(AuthProvider.fromString("non_existing_provider")));
     }
 }

@@ -1,14 +1,28 @@
 package com.olehprukhnytskyi.macrotrackeruserservice.service.impl;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import com.olehprukhnytskyi.macrotrackeruserservice.client.GoalClient;
+import com.olehprukhnytskyi.macrotrackeruserservice.dto.GoalResponseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.LoginRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.RegisterRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.SocialTokenRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.SocialUserDetails;
 import com.olehprukhnytskyi.macrotrackeruserservice.exception.AuthenticationException;
+import com.olehprukhnytskyi.macrotrackeruserservice.mapper.UserMapper;
+import com.olehprukhnytskyi.macrotrackeruserservice.mapper.UserProfileMapper;
 import com.olehprukhnytskyi.macrotrackeruserservice.model.User;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.UserRepository;
 import com.olehprukhnytskyi.macrotrackeruserservice.service.SocialTokenVerificationService;
+import com.olehprukhnytskyi.macrotrackeruserservice.util.AuthProvider;
 import com.olehprukhnytskyi.macrotrackeruserservice.util.JwtUtil;
+import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -17,189 +31,189 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.*;
-
 @ExtendWith(MockitoExtension.class)
 class AuthServiceImplTest {
-	@Mock
-	private SocialTokenVerificationService tokenVerificationService;
+    @Mock
+    private SocialTokenVerificationService tokenVerificationService;
+    @Mock
+    private JwtUtil jwtUtil;
+    @Mock
+    private UserRepository userRepository;
+    @Mock
+    private UserMapper userMapper;
+    @Mock
+    private GoalClient goalClient;
+    @Mock
+    private UserProfileMapper userProfileMapper;
 
-	@Mock
-	private JwtUtil jwtUtil;
+    @InjectMocks
+    private AuthServiceImpl authService;
 
-	@Mock
-	private UserRepository userRepository;
+    @Test
+    @DisplayName("Should throw an exception, when user does not exist")
+    void login_whenUserDoesNotExist_shouldThrowException() {
+        // Given
+        LoginRequestDto loginRequestDto = new LoginRequestDto();
+        loginRequestDto.setEmail("test@example.com");
+        loginRequestDto.setPassword("password");
 
-	@InjectMocks
-	private AuthServiceImpl authService;
+        when(userRepository.findByEmail(anyString())).thenReturn(Optional.empty());
 
-	@Test
-	@DisplayName("Should throw an exception, when user does not exist")
-	void login_whenUserDoesNotExist_shouldThrowException() {
-		// Given
-		LoginRequestDto loginRequestDto = new LoginRequestDto();
-		loginRequestDto.setEmail("test@example.com");
-		loginRequestDto.setPassword("password");
+        // When
+        AuthenticationException exception = assertThrows(AuthenticationException.class,
+                () -> authService.login(loginRequestDto));
 
-		when(userRepository.findByEmail(anyString())).thenReturn(Optional.empty());
+        // Then
+        String expected = "Invalid email or password";
+        assertEquals(expected, exception.getMessage());
+    }
 
-		// When
-		AuthenticationException exception = assertThrows(AuthenticationException.class,
-				() -> authService.login(loginRequestDto));
+    @Test
+    @DisplayName("Should throw an exception, when passwords do not match")
+    void login_whenPasswordsDoNotMatch_shouldThrowException() {
+        // Given
+        LoginRequestDto loginRequestDto = new LoginRequestDto();
+        loginRequestDto.setEmail("test@example.com");
+        loginRequestDto.setPassword("wrongPassword");
 
-		// Then
-		String expected = "Invalid email or password";
-		assertEquals(expected, exception.getMessage());
-	}
+        User userFromDb = new User();
+        userFromDb.setEmail("test@example.com");
+        userFromDb.setPassword(BCrypt.hashpw("correctPassword", BCrypt.gensalt()));
 
-	@Test
-	@DisplayName("Should throw an exception, when passwords do not match")
-	void login_whenPasswordsDoNotMatch_shouldThrowException() {
-		// Given
-		LoginRequestDto loginRequestDto = new LoginRequestDto();
-		loginRequestDto.setEmail("test@example.com");
-		loginRequestDto.setPassword("wrongPassword");
+        when(userRepository.findByEmail("test@example.com"))
+                .thenReturn(Optional.of(userFromDb));
 
-		User userFromDb = new User();
-		userFromDb.setEmail("test@example.com");
-		userFromDb.setPassword(BCrypt.hashpw("correctPassword", BCrypt.gensalt()));
+        // When
+        AuthenticationException exception = assertThrows(AuthenticationException.class,
+                () -> authService.login(loginRequestDto));
 
-		when(userRepository.findByEmail("test@example.com"))
-				.thenReturn(Optional.of(userFromDb));
+        // Then
+        String expected = "Invalid email or password";
+        assertEquals(expected, exception.getMessage());
+    }
 
-		// When
-		AuthenticationException exception = assertThrows(AuthenticationException.class,
-				() -> authService.login(loginRequestDto));
+    @Test
+    @DisplayName("Should return a JWT token, when passwords match")
+    void login_whenPasswordsMatch_shouldReturnJwtToken() {
+        // Given
+        LoginRequestDto loginRequestDto = new LoginRequestDto();
+        loginRequestDto.setEmail("test@example.com");
+        loginRequestDto.setPassword("password");
 
-		// Then
-		String expected = "Invalid email or password";
-		assertEquals(expected, exception.getMessage());
-	}
+        User userFromDb = new User();
+        userFromDb.setEmail("test@example.com");
+        userFromDb.setPassword(BCrypt.hashpw("password", BCrypt.gensalt()));
 
-	@Test
-	@DisplayName("Should return a JWT token, when passwords match")
-	void login_whenPasswordsMatch_shouldReturnJwtToken() {
-		// Given
-		LoginRequestDto loginRequestDto = new LoginRequestDto();
-		loginRequestDto.setEmail("test@example.com");
-		loginRequestDto.setPassword("password");
+        when(userRepository.findByEmail("test@example.com"))
+                .thenReturn(Optional.of(userFromDb));
+        when(jwtUtil.generateToken(userFromDb)).thenReturn("jwt_token");
 
-		User userFromDb = new User();
-		userFromDb.setEmail("test@example.com");
-		userFromDb.setPassword(BCrypt.hashpw("password", BCrypt.gensalt()));
+        // When
+        String actualJwt = authService.login(loginRequestDto);
 
-		when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(userFromDb));
-		when(jwtUtil.generateToken(userFromDb)).thenReturn("jwt_token");
+        // Then
+        assertEquals("jwt_token", actualJwt);
+    }
 
-		// When
-		String actualJwt = authService.login(loginRequestDto);
+    @Test
+    @DisplayName("Should throw an exception, when user exists")
+    void register_whenUserExists_shouldThrowException() {
+        // Given
+        RegisterRequestDto registerRequestDto = new RegisterRequestDto();
+        registerRequestDto.setEmail("test@example.com");
 
-		// Then
-		assertEquals("jwt_token", actualJwt);
-	}
+        User userFromDb = new User();
+        userFromDb.setEmail("test@example.com");
 
-	@Test
-	@DisplayName("Should throw an exception, when user exists")
-	void register_whenUserExists_shouldThrowException() {
-		// Given
-		RegisterRequestDto registerRequestDto = new RegisterRequestDto();
-		registerRequestDto.setEmail("test@example.com");
+        when(userRepository.findByEmail("test@example.com"))
+                .thenReturn(Optional.of(userFromDb));
 
-		User userFromDb = new User();
-		userFromDb.setEmail("test@example.com");
+        // When
+        AuthenticationException exception = assertThrows(AuthenticationException.class,
+                () -> authService.register(registerRequestDto));
 
-		when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(userFromDb));
+        // Then
+        String expected = "An account with this email already exists";
+        assertEquals(expected, exception.getMessage());
+    }
 
-		// When
-		AuthenticationException exception = assertThrows(AuthenticationException.class,
-				() -> authService.register(registerRequestDto));
+    @Test
+    @DisplayName("Should return JWT token, when user does not exist")
+    void register_whenUserDoesNotExist_shouldReturnJwtToken() {
+        // Given
+        RegisterRequestDto registerRequestDto = new RegisterRequestDto();
+        registerRequestDto.setEmail("test@example.com");
 
-		// Then
-		String expected = "An account with this email already exists";
-		assertEquals(expected, exception.getMessage());
-	}
+        User userFromDb = new User();
+        userFromDb.setEmail("test@example.com");
 
-	@Test
-	@DisplayName("Should return JWT token, when user does not exist")
-	void register_whenUserDoesNotExist_shouldReturnJwtToken() {
-		// Given
-		RegisterRequestDto registerRequestDto = new RegisterRequestDto();
-		registerRequestDto.setEmail("test@example.com");
+        when(userRepository.findByEmail("test@example.com"))
+                .thenReturn(Optional.empty());
+        when(userRepository.save(any())).thenReturn(userFromDb);
+        when(userMapper.toUser(any())).thenReturn(userFromDb);
+        when(goalClient.calculateGoal(any())).thenReturn(new GoalResponseDto());
+        when(jwtUtil.generateToken(userFromDb)).thenReturn("jwt_token");
 
-		User userFromDb = new User();
-		userFromDb.setEmail("test@example.com");
+        // When
+        String actualJwt = authService.register(registerRequestDto);
 
-		when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.empty());
-		when(userRepository.save(any())).thenReturn(userFromDb);
-		when(jwtUtil.generateToken(userFromDb)).thenReturn("jwt_token");
+        // Then
+        assertEquals("jwt_token", actualJwt);
+    }
 
-		// When
-		String actualJwt = authService.register(registerRequestDto);
+    @Test
+    @DisplayName("Given a valid token and provider,"
+            + " if the user does not exist,"
+            + " should save the user and return a JWT token")
+    void authenticateWithSocial_whenUserDoesNotExist_shouldReturnJwtToken() {
+        // Given
+        User user = new User();
+        user.setEmail("test@example.com");
+        user.setAuthProvider(AuthProvider.GOOGLE);
 
-		// Then
-		assertEquals("jwt_token", actualJwt);
-	}
+        SocialUserDetails userPayload = new SocialUserDetails("test@example.com");
+        SocialTokenRequestDto tokenRequestDto = new SocialTokenRequestDto(
+                "test_token", AuthProvider.GOOGLE);
 
-	@Test
-	@DisplayName("""
-			 Given a valid token and provider,
-			 if the user does not exist,
-			 should save the user and return a JWT token
-			""")
-	void authenticateWithSocial_whenUserDoesNotExist_shouldReturnJwtToken() {
-		// Given
-		SocialUserDetails userPayload = new SocialUserDetails("test@example.com");
+        when(tokenVerificationService.verifyToken("test_token", AuthProvider.GOOGLE))
+                .thenReturn(userPayload);
+        when(userRepository.findByEmail(anyString())).thenReturn(Optional.empty());
+        when(userRepository.save(any(User.class))).thenReturn(user);
+        when(jwtUtil.generateToken(any())).thenReturn("jwt_token");
 
-		User user = new User();
-		user.setEmail("test@example.com");
-		user.setAuthProvider("google");
+        // When
+        String actualJwt = authService.authenticateWithSocial(tokenRequestDto);
 
-		SocialTokenRequestDto tokenRequestDto = new SocialTokenRequestDto("test_token", "google");
+        // Then
+        assertEquals("jwt_token", actualJwt);
+        verify(userRepository).save(any(User.class));
+    }
 
-		when(tokenVerificationService.verifyToken("test_token", "google")).thenReturn(userPayload);
-		when(userRepository.findByEmail(anyString())).thenReturn(Optional.empty());
-		when(userRepository.save(any(User.class))).thenReturn(user);
-		when(jwtUtil.generateToken(any())).thenReturn("jwt_token");
+    @Test
+    @DisplayName("Given a valid token and provider, "
+            + "if the user exists,"
+            + " should return a JWT token")
+    void authenticateWithSocial_whenUserExists_shouldReturnJwtToken() {
+        // Given
+        SocialUserDetails userPayload = new SocialUserDetails("test@example.com");
 
-		// When
-		String actualJwt = authService.authenticateWithSocial(tokenRequestDto);
+        User user = new User();
+        user.setEmail("test@example.com");
+        user.setAuthProvider(AuthProvider.GOOGLE);
 
-		// Then
-		assertEquals("jwt_token", actualJwt);
-		verify(userRepository).save(any(User.class));
-	}
+        SocialTokenRequestDto tokenRequestDto = new SocialTokenRequestDto(
+                "test_token", AuthProvider.GOOGLE);
 
-	@Test
-	@DisplayName("""
-			 Given a valid token and provider,
-			 if the user exists,
-			 should return a JWT token
-			""")
-	void authenticateWithSocial_whenUserExists_shouldReturnJwtToken() {
-		// Given
-		SocialUserDetails userPayload = new SocialUserDetails("test@example.com");
+        when(tokenVerificationService.verifyToken(anyString(), any()))
+                .thenReturn(userPayload);
+        when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(user));
+        when(jwtUtil.generateToken(any())).thenReturn("jwt_token");
 
-		User user = new User();
-		user.setEmail("test@example.com");
-		user.setAuthProvider("google");
+        // When
+        String actualJwt = authService.authenticateWithSocial(tokenRequestDto);
 
-		SocialTokenRequestDto tokenRequestDto = new SocialTokenRequestDto("test_token", "google");
-
-		when(tokenVerificationService.verifyToken(anyString(), anyString())).thenReturn(userPayload);
-		when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(user));
-		when(jwtUtil.generateToken(any())).thenReturn("jwt_token");
-
-		// When
-		String actualJwt = authService.authenticateWithSocial(tokenRequestDto);
-
-		// Then
-		assertEquals("jwt_token", actualJwt);
-		verify(userRepository, never()).save(any());
-	}
+        // Then
+        assertEquals("jwt_token", actualJwt);
+        verify(userRepository, never()).save(any());
+    }
 }
