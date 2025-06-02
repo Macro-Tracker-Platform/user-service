@@ -1,7 +1,10 @@
 package com.olehprukhnytskyi.macrotrackeruserservice.service;
 
-import com.olehprukhnytskyi.macrotrackeruserservice.dto.UserProfileResponseDto;
+import com.olehprukhnytskyi.macrotrackeruserservice.dto.GoalResponseDto;
+import com.olehprukhnytskyi.macrotrackeruserservice.dto.UserDetailsResponseDto;
 
 public interface UserProfileService {
-    UserProfileResponseDto findById(Long userId);
+    UserDetailsResponseDto findDetailsByUserId(Long userId);
+
+    GoalResponseDto findGoalByUserId(Long userId);
 }
