@@ -1,9 +1,11 @@
 package com.olehprukhnytskyi.macrotrackeruserservice.service.impl;
 
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.GoalResponseDto;
+import com.olehprukhnytskyi.macrotrackeruserservice.dto.UpdateUserDetailsRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.UserDetailsResponseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.exception.NotFoundException;
 import com.olehprukhnytskyi.macrotrackeruserservice.mapper.UserProfileMapper;
+import com.olehprukhnytskyi.macrotrackeruserservice.model.UserProfile;
 import com.olehprukhnytskyi.macrotrackeruserservice.projection.UserDetailsProjection;
 import com.olehprukhnytskyi.macrotrackeruserservice.projection.UserGoalProjection;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.UserProfileRepository;
@@ -15,6 +17,7 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class UserProfileServiceImpl implements UserProfileService {
     private final UserProfileRepository userProfileRepository;
+    private final UserProfileMapper userProfileMapper;
     private final UserProfileMapper profileMapper;
 
     @Override
@@ -29,5 +32,15 @@ public class UserProfileServiceImpl implements UserProfileService {
         UserGoalProjection goalsProjection = userProfileRepository.findGoalsByUserId(userId)
                 .orElseThrow(() -> new NotFoundException("Profile not found"));
         return profileMapper.toDto(goalsProjection);
+    }
+
+    @Override
+    public UserDetailsResponseDto updateUserDetails(
+            UpdateUserDetailsRequestDto requestDto, Long userId) {
+        UserProfile profile = userProfileRepository.findById(userId)
+                .orElseThrow(() -> new NotFoundException("Profile not found"));
+        userProfileMapper.updateUserDetailsFromDto(profile, requestDto);
+        userProfileRepository.save(profile);
+        return userProfileMapper.toUserDetailsResponse(profile);
     }
 }

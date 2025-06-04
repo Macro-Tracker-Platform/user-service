@@ -1,14 +1,18 @@
 package com.olehprukhnytskyi.macrotrackeruserservice.controller;
 
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.GoalResponseDto;
+import com.olehprukhnytskyi.macrotrackeruserservice.dto.UpdateUserDetailsRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.UserDetailsResponseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.service.UserProfileService;
 import com.olehprukhnytskyi.macrotrackeruserservice.service.UserService;
 import com.olehprukhnytskyi.macrotrackeruserservice.util.CustomHeaders;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -20,7 +24,7 @@ public class UserProfileController {
     private final UserProfileService userProfileService;
     private final UserService userService;
 
-    @GetMapping
+    @GetMapping("/details")
     public ResponseEntity<UserDetailsResponseDto> getUserDetails(
             @RequestHeader(CustomHeaders.X_USER_ID) Long userId) {
         return ResponseEntity.ok(userProfileService.findDetailsByUserId(userId));
@@ -37,5 +41,14 @@ public class UserProfileController {
             @RequestHeader(CustomHeaders.X_USER_ID) Long userId) {
         userService.deleteById(userId);
         return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/details")
+    public ResponseEntity<UserDetailsResponseDto> updateUserDetails(
+            @RequestHeader(CustomHeaders.X_USER_ID) Long userId,
+            @RequestBody @Valid UpdateUserDetailsRequestDto requestDto) {
+        UserDetailsResponseDto details = userProfileService
+                .updateUserDetails(requestDto, userId);
+        return ResponseEntity.ok(details);
     }
 }
