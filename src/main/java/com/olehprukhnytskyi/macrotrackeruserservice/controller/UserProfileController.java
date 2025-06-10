@@ -12,7 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -44,7 +44,7 @@ public class UserProfileController {
         return ResponseEntity.noContent().build();
     }
 
-    @PutMapping("/details")
+    @PatchMapping("/details")
     public ResponseEntity<UserDetailsResponseDto> updateUserDetails(
             @RequestHeader(CustomHeaders.X_USER_ID) Long userId,
             @RequestBody @Valid UpdateUserDetailsRequestDto requestDto) {
@@ -53,7 +53,7 @@ public class UserProfileController {
         return ResponseEntity.ok(details);
     }
 
-    @PutMapping("/goal")
+    @PatchMapping("/goal")
     public ResponseEntity<GoalResponseDto> updateGoal(
             @RequestHeader(CustomHeaders.X_USER_ID) Long userId,
             @RequestBody(required = false) @Valid UpdateGoalRequestDto requestDto) {
