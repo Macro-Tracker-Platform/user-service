@@ -2,7 +2,9 @@ package com.olehprukhnytskyi.macrotrackeruserservice.mapper;
 
 import com.olehprukhnytskyi.macrotrackeruserservice.config.MapperConfig;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.GoalResponseDto;
+import com.olehprukhnytskyi.macrotrackeruserservice.dto.UpdateGoalRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.UpdateUserDetailsRequestDto;
+import com.olehprukhnytskyi.macrotrackeruserservice.dto.UserDetailsRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.UserDetailsResponseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.model.UserProfile;
 import com.olehprukhnytskyi.macrotrackeruserservice.projection.UserDetailsProjection;
@@ -27,5 +29,14 @@ public interface UserProfileMapper {
     void updateUserDetailsFromDto(@MappingTarget UserProfile entity,
                                   UpdateUserDetailsRequestDto dto);
 
+    void updateUserGoalFromDto(@MappingTarget UserProfile entity,
+                               GoalResponseDto dto);
+
     UserDetailsResponseDto toUserDetailsResponse(UserProfile entity);
+
+    GoalResponseDto toUserGoalResponse(UserProfile entity);
+
+    GoalResponseDto toUserGoalResponse(UpdateGoalRequestDto dto);
+
+    UserDetailsRequestDto toUserDetailsRequest(UpdateUserDetailsRequestDto dto);
 }

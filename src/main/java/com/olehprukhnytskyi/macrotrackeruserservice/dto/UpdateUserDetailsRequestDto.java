@@ -26,4 +26,6 @@ public class UpdateUserDetailsRequestDto {
     private ActivityLevel activityLevel;
 
     private Goal goal;
+
+    private boolean recalculate;
 }

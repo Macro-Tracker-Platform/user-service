@@ -1,6 +1,7 @@
 package com.olehprukhnytskyi.macrotrackeruserservice.controller;
 
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.GoalResponseDto;
+import com.olehprukhnytskyi.macrotrackeruserservice.dto.UpdateGoalRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.UpdateUserDetailsRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.UserDetailsResponseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.service.UserProfileService;
@@ -50,5 +51,13 @@ public class UserProfileController {
         UserDetailsResponseDto details = userProfileService
                 .updateUserDetails(requestDto, userId);
         return ResponseEntity.ok(details);
+    }
+
+    @PutMapping("/goal")
+    public ResponseEntity<GoalResponseDto> updateGoal(
+            @RequestHeader(CustomHeaders.X_USER_ID) Long userId,
+            @RequestBody(required = false) @Valid UpdateGoalRequestDto requestDto) {
+        GoalResponseDto updatedGoal = userProfileService.updateUserGoal(requestDto, userId);
+        return ResponseEntity.ok(updatedGoal);
     }
 }
