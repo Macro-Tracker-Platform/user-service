@@ -4,10 +4,12 @@ import com.olehprukhnytskyi.macrotrackeruserservice.util.ActivityLevel;
 import com.olehprukhnytskyi.macrotrackeruserservice.util.Gender;
 import com.olehprukhnytskyi.macrotrackeruserservice.util.Goal;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class UserDetailsResponseDto {

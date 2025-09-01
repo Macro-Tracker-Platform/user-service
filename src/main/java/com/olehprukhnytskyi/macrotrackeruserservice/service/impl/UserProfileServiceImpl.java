@@ -19,7 +19,6 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class UserProfileServiceImpl implements UserProfileService {
     private final UserProfileRepository userProfileRepository;
-    private final UserProfileMapper userProfileMapper;
     private final UserProfileMapper profileMapper;
     private final GoalClient goalClient;
 
@@ -44,21 +43,21 @@ public class UserProfileServiceImpl implements UserProfileService {
                 .orElseThrow(() -> new NotFoundException("Profile not found"));
         if (requestDto.isRecalculate()) {
             GoalResponseDto calculatedGoal = goalClient.calculateGoal(
-                    userProfileMapper.toUserDetailsRequest(requestDto));
-            userProfileMapper.updateUserGoalFromDto(profile, calculatedGoal);
+                    profileMapper.toUserDetailsRequest(requestDto));
+            profileMapper.updateUserGoalFromDto(profile, calculatedGoal);
         }
-        userProfileMapper.updateUserDetailsFromDto(profile, requestDto);
+        profileMapper.updateUserDetailsFromDto(profile, requestDto);
         userProfileRepository.save(profile);
-        return userProfileMapper.toUserDetailsResponse(profile);
+        return profileMapper.toUserDetailsResponse(profile);
     }
 
     @Override
     public GoalResponseDto updateUserGoal(UpdateGoalRequestDto requestDto, Long userId) {
         UserProfile profile = userProfileRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException("Profile not found"));
-        userProfileMapper.updateUserGoalFromDto(profile, profileMapper
+        profileMapper.updateUserGoalFromDto(profile, profileMapper
                 .toUserGoalResponse(requestDto));
         userProfileRepository.save(profile);
-        return userProfileMapper.toUserGoalResponse(profile);
+        return profileMapper.toUserGoalResponse(profile);
     }
 }

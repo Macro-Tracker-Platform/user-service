@@ -140,8 +140,8 @@ class AuthControllerTest {
     @Sql(scripts = "classpath:database/remove-user-for-auth.sql",
             executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
     @Test
-    @DisplayName("When user exists, should return unauthorized status")
-    void register_whenUserExists_shouldReturnUnauthorized() throws Exception {
+    @DisplayName("When user already exists, should return unauthorized status")
+    void register_whenUserAlreadyExists_shouldReturnUnauthorized() throws Exception {
         // GIven
         RegisterRequestDto requestDto = new RegisterRequestDto(
                 "test@example.com", "password", "password");
