@@ -13,6 +13,8 @@ import com.olehprukhnytskyi.macrotrackeruserservice.projection.UserGoalProjectio
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.UserProfileRepository;
 import com.olehprukhnytskyi.macrotrackeruserservice.service.UserProfileService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -22,6 +24,7 @@ public class UserProfileServiceImpl implements UserProfileService {
     private final UserProfileMapper profileMapper;
     private final GoalClient goalClient;
 
+    @Cacheable(value = "userDetails", key = "#userId")
     @Override
     public UserDetailsResponseDto findDetailsByUserId(Long userId) {
         UserDetailsProjection detailsProjection = userProfileRepository.findDetailsByUserId(userId)
@@ -29,6 +32,7 @@ public class UserProfileServiceImpl implements UserProfileService {
         return profileMapper.toDto(detailsProjection);
     }
 
+    @Cacheable(value = "userGoals", key = "#userId")
     @Override
     public GoalResponseDto findGoalByUserId(Long userId) {
         UserGoalProjection goalsProjection = userProfileRepository.findGoalsByUserId(userId)
@@ -36,6 +40,7 @@ public class UserProfileServiceImpl implements UserProfileService {
         return profileMapper.toDto(goalsProjection);
     }
 
+    @CacheEvict(value = "userDetails", key = "#userId")
     @Override
     public UserDetailsResponseDto updateUserDetails(
             UpdateUserDetailsRequestDto requestDto, Long userId) {
@@ -51,6 +56,7 @@ public class UserProfileServiceImpl implements UserProfileService {
         return profileMapper.toUserDetailsResponse(profile);
     }
 
+    @CacheEvict(value = "userGoals", key = "#userId")
     @Override
     public GoalResponseDto updateUserGoal(UpdateGoalRequestDto requestDto, Long userId) {
         UserProfile profile = userProfileRepository.findById(userId)

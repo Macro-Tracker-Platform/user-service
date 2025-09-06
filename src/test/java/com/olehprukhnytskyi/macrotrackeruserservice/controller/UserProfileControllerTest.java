@@ -14,6 +14,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.olehprukhnytskyi.macrotrackeruserservice.client.GoalClient;
+import com.olehprukhnytskyi.macrotrackeruserservice.config.AbstractRedisTest;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.GoalResponseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.UpdateGoalRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.UpdateUserDetailsRequestDto;
@@ -46,7 +47,7 @@ import org.springframework.web.context.WebApplicationContext;
 @Sql(scripts = "classpath:database/remove-user-details-for-profile.sql",
         executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-class UserProfileControllerTest {
+class UserProfileControllerTest extends AbstractRedisTest {
     protected static MockMvc mockMvc;
 
     @Autowired
