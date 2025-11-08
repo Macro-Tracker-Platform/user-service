@@ -3,6 +3,7 @@ package com.olehprukhnytskyi.macrotrackeruserservice.dto;
 import com.olehprukhnytskyi.macrotrackeruserservice.util.ActivityLevel;
 import com.olehprukhnytskyi.macrotrackeruserservice.util.Gender;
 import com.olehprukhnytskyi.macrotrackeruserservice.util.Goal;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -12,11 +13,23 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@Schema(description = "User profile details")
 public class UserDetailsResponseDto {
+    @Schema(description = "User age in years", example = "25")
     private Integer age;
+
+    @Schema(description = "User weight in kilograms", example = "70")
     private Integer weight;
+
+    @Schema(description = "User height in centimeters", example = "175")
     private Integer height;
+
+    @Schema(description = "User gender")
     private Gender gender;
+
+    @Schema(description = "User activity level")
     private ActivityLevel activityLevel;
+
+    @Schema(description = "User fitness goal")
     private Goal goal;
 }
