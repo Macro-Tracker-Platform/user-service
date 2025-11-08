@@ -10,12 +10,14 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+@Slf4j
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/auth")
@@ -33,7 +35,9 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<AuthResponseDto>> login(
             @RequestBody @Valid LoginRequestDto requestDto) {
+        log.info("Login request received");
         String token = authService.login(requestDto);
+        log.info("Login successful");
         return ResponseEntity.ok(ApiResponse.success(new AuthResponseDto(token)));
     }
 
@@ -44,7 +48,9 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<AuthResponseDto>> register(
             @RequestBody @Valid RegisterRequestDto requestDto) {
+        log.info("Registration request received");
         String token = authService.register(requestDto);
+        log.info("Registration successful");
         return ResponseEntity.ok(ApiResponse.success(new AuthResponseDto(token)));
     }
 
@@ -55,7 +61,9 @@ public class AuthController {
     @PostMapping("/social")
     public ResponseEntity<ApiResponse<AuthResponseDto>> authenticateWithSocial(
             @RequestBody @Valid SocialTokenRequestDto requestDto) {
+        log.info("Social authentication request received");
         String token = authService.authenticateWithSocial(requestDto);
+        log.info("Social authentication successful");
         return ResponseEntity.ok(ApiResponse.success(new AuthResponseDto(token)));
     }
 }

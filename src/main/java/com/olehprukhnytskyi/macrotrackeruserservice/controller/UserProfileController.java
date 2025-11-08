@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,6 +21,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/profile")
 @RequiredArgsConstructor
@@ -38,7 +40,10 @@ public class UserProfileController {
     @GetMapping("/details")
     public ResponseEntity<UserDetailsResponseDto> getUserDetails(
             @RequestHeader(CustomHeaders.X_USER_ID) Long userId) {
-        return ResponseEntity.ok(userProfileService.findDetailsByUserId(userId));
+        log.info("Fetching user details for userId={}", userId);
+        UserDetailsResponseDto details = userProfileService.findDetailsByUserId(userId);
+        log.info("Fetched user details for userId={}", userId);
+        return ResponseEntity.ok(details);
     }
 
     @Operation(
@@ -48,7 +53,10 @@ public class UserProfileController {
     @GetMapping("/goal")
     public ResponseEntity<GoalResponseDto> getUserGoal(
             @RequestHeader(CustomHeaders.X_USER_ID) Long userId) {
-        return ResponseEntity.ok(userProfileService.findGoalByUserId(userId));
+        log.info("Fetching user goals for userId={}", userId);
+        GoalResponseDto goal = userProfileService.findGoalByUserId(userId);
+        log.info("Fetched user goals for userId={}", userId);
+        return ResponseEntity.ok(goal);
     }
 
     @Operation(
@@ -58,7 +66,9 @@ public class UserProfileController {
     @DeleteMapping
     public ResponseEntity<Void> deleteUser(
             @RequestHeader(CustomHeaders.X_USER_ID) Long userId) {
+        log.info("Deleting user account for userId={}", userId);
         userService.deleteById(userId);
+        log.info("Deleted user account for userId={}", userId);
         return ResponseEntity.noContent().build();
     }
 
@@ -70,8 +80,10 @@ public class UserProfileController {
     public ResponseEntity<UserDetailsResponseDto> updateUserDetails(
             @RequestHeader(CustomHeaders.X_USER_ID) Long userId,
             @RequestBody @Valid UpdateUserDetailsRequestDto requestDto) {
+        log.info("Updating user details for userId={}", userId);
         UserDetailsResponseDto details = userProfileService
                 .updateUserDetails(requestDto, userId);
+        log.info("Updated user details for userId={}", userId);
         return ResponseEntity.ok(details);
     }
 
@@ -83,7 +95,9 @@ public class UserProfileController {
     public ResponseEntity<GoalResponseDto> updateGoal(
             @RequestHeader(CustomHeaders.X_USER_ID) Long userId,
             @RequestBody(required = false) @Valid UpdateGoalRequestDto requestDto) {
+        log.info("Updating nutrition goals for userId={}", userId);
         GoalResponseDto updatedGoal = userProfileService.updateUserGoal(requestDto, userId);
+        log.info("Updated nutrition goals for userId={}", userId);
         return ResponseEntity.ok(updatedGoal);
     }
 }

@@ -19,9 +19,11 @@ import com.olehprukhnytskyi.macrotrackeruserservice.util.JwtUtil;
 import jakarta.transaction.Transactional;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.mindrot.jbcrypt.BCrypt;
 import org.springframework.stereotype.Service;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
@@ -37,6 +39,7 @@ public class AuthServiceImpl implements AuthService {
         Optional<User> userFromDb = userRepository.findByEmail(loginDto.getEmail());
         if (userFromDb.isEmpty() || !BCrypt.checkpw(loginDto
                 .getPassword(), userFromDb.get().getPassword())) {
+            log.warn("Login failed");
             throw new AuthenticationException("Invalid email or password");
         }
         return jwtUtil.generateToken(userFromDb.get());
@@ -46,6 +49,7 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public String register(RegisterRequestDto registerDto) {
         if (userRepository.findByEmail(registerDto.getEmail()).isPresent()) {
+            log.warn("Registration failed: email already exists");
             throw new AuthenticationException("An account with this email already exists");
         }
         User user = userMapper.toUser(registerDto);

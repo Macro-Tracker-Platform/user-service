@@ -5,8 +5,10 @@ import com.olehprukhnytskyi.macrotrackeruserservice.service.strategy.SocialToken
 import com.olehprukhnytskyi.macrotrackeruserservice.util.AuthProvider;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class SocialTokenVerificationService {
@@ -18,6 +20,7 @@ public class SocialTokenVerificationService {
                 return verifier.verify(token);
             }
         }
+        log.error("Unsupported social provider: {}", provider);
         throw new IllegalArgumentException("Unsupported provider: "
                 + provider.name().toLowerCase());
     }

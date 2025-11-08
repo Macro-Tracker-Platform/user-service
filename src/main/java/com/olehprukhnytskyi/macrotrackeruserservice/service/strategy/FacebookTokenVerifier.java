@@ -6,6 +6,7 @@ import com.olehprukhnytskyi.macrotrackeruserservice.dto.SocialUserDetails;
 import com.olehprukhnytskyi.macrotrackeruserservice.exception.TokenVerificationException;
 import com.olehprukhnytskyi.macrotrackeruserservice.util.AuthProvider;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
@@ -14,6 +15,7 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestTemplate;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class FacebookTokenVerifier implements SocialTokenVerifier {
@@ -68,6 +70,7 @@ public class FacebookTokenVerifier implements SocialTokenVerifier {
             throw new TokenVerificationException("Facebook user information is"
                     + " missing or malformed");
         } catch (HttpClientErrorException | HttpServerErrorException e) {
+            log.error("Facebook API error during token verification: {}", e.getMessage(), e);
             throw new TokenVerificationException("Error connecting to Facebook API: "
                     + e.getMessage(), e);
         }

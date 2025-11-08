@@ -13,10 +13,12 @@ import com.olehprukhnytskyi.macrotrackeruserservice.projection.UserGoalProjectio
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.UserProfileRepository;
 import com.olehprukhnytskyi.macrotrackeruserservice.service.UserProfileService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class UserProfileServiceImpl implements UserProfileService {
@@ -28,7 +30,10 @@ public class UserProfileServiceImpl implements UserProfileService {
     @Override
     public UserDetailsResponseDto findDetailsByUserId(Long userId) {
         UserDetailsProjection detailsProjection = userProfileRepository.findDetailsByUserId(userId)
-                .orElseThrow(() -> new NotFoundException("Profile not found"));
+                .orElseThrow(() -> {
+                    log.warn("Profile not found for userId={}", userId);
+                    return new NotFoundException("Profile not found");
+                });
         return profileMapper.toDto(detailsProjection);
     }
 
@@ -36,7 +41,10 @@ public class UserProfileServiceImpl implements UserProfileService {
     @Override
     public GoalResponseDto findGoalByUserId(Long userId) {
         UserGoalProjection goalsProjection = userProfileRepository.findGoalsByUserId(userId)
-                .orElseThrow(() -> new NotFoundException("Profile not found"));
+                .orElseThrow(() -> {
+                    log.warn("Profile goals not found for userId={}", userId);
+                    return new NotFoundException("Profile not found");
+                });
         return profileMapper.toDto(goalsProjection);
     }
 
@@ -45,14 +53,19 @@ public class UserProfileServiceImpl implements UserProfileService {
     public UserDetailsResponseDto updateUserDetails(
             UpdateUserDetailsRequestDto requestDto, Long userId) {
         UserProfile profile = userProfileRepository.findById(userId)
-                .orElseThrow(() -> new NotFoundException("Profile not found"));
+                .orElseThrow(() -> {
+                    log.warn("Profile not found for update, userId={}", userId);
+                    return new NotFoundException("Profile not found");
+                });
         if (requestDto.isRecalculate()) {
             GoalResponseDto calculatedGoal = goalClient.calculateGoal(
                     profileMapper.toUserDetailsRequest(requestDto));
             profileMapper.updateUserGoalFromDto(profile, calculatedGoal);
+            log.info("User goal recalculated for userId={}", userId);
         }
         profileMapper.updateUserDetailsFromDto(profile, requestDto);
         userProfileRepository.save(profile);
+        log.info("User profile updated for userId={}", userId);
         return profileMapper.toUserDetailsResponse(profile);
     }
 
@@ -60,10 +73,14 @@ public class UserProfileServiceImpl implements UserProfileService {
     @Override
     public GoalResponseDto updateUserGoal(UpdateGoalRequestDto requestDto, Long userId) {
         UserProfile profile = userProfileRepository.findById(userId)
-                .orElseThrow(() -> new NotFoundException("Profile not found"));
+                .orElseThrow(() -> {
+                    log.warn("Profile not found for goal update, userId={}", userId);
+                    return new NotFoundException("Profile not found");
+                });
         profileMapper.updateUserGoalFromDto(profile, profileMapper
                 .toUserGoalResponse(requestDto));
         userProfileRepository.save(profile);
+        log.info("User goal updated for userId={}", userId);
         return profileMapper.toUserGoalResponse(profile);
     }
 }
