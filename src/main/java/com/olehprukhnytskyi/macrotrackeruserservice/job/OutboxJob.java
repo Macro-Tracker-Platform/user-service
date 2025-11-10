@@ -1,0 +1,35 @@
+package com.olehprukhnytskyi.macrotrackeruserservice.job;
+
+import com.olehprukhnytskyi.macrotrackeruserservice.model.OutboxEvent;
+import com.olehprukhnytskyi.macrotrackeruserservice.producer.UserEventProducer;
+import com.olehprukhnytskyi.macrotrackeruserservice.repository.OutboxRepository;
+import java.util.List;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+@Slf4j
+@Component
+@RequiredArgsConstructor
+public class OutboxJob {
+    private final OutboxRepository outboxRepository;
+    private final UserEventProducer userEventProducer;
+
+    @Scheduled(fixedDelay = 5000)
+    @Transactional
+    public void processUserDeletedEvents() {
+        List<OutboxEvent> events = outboxRepository
+                .findTop100ByProcessedFalseAndEventTypeOrderByCreatedAtAsc("USER_DELETED");
+        for (OutboxEvent event : events) {
+            try {
+                Long userId = Long.parseLong(event.getAggregateId());
+                userEventProducer.sendUserDeletedEvent(userId);
+            } catch (Exception e) {
+                log.error("Failed to process outbox event {}: {}", event.getId(), e.getMessage());
+            }
+        }
+        outboxRepository.saveAll(events);
+    }
+}

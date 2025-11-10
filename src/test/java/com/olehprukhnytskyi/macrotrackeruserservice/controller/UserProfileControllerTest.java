@@ -19,7 +19,7 @@ import com.olehprukhnytskyi.macrotrackeruserservice.dto.GoalResponseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.UpdateGoalRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.UpdateUserDetailsRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.UserDetailsResponseDto;
-import com.olehprukhnytskyi.macrotrackeruserservice.producer.UserEventProducer;
+import com.olehprukhnytskyi.macrotrackeruserservice.repository.OutboxRepository;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.UserProfileRepository;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.UserRepository;
 import com.olehprukhnytskyi.macrotrackeruserservice.service.impl.UserProfileServiceImpl;
@@ -61,7 +61,7 @@ class UserProfileControllerTest extends AbstractRedisTest {
     @MockitoBean
     private GoalClient goalClient;
     @MockitoBean
-    private UserEventProducer userEventProducer;
+    private OutboxRepository outboxRepository;
     @InjectMocks
     private UserProfileServiceImpl userProfileService;
 
@@ -163,7 +163,7 @@ class UserProfileControllerTest extends AbstractRedisTest {
         // Then
         assertThat(userRepository.findById(2L)).isEmpty();
         verify(userRepository, times(1)).deleteById(2L);
-        verify(userEventProducer, times(1)).sendUserDeletedEvent(2L);
+        verify(outboxRepository, times(1)).save(any());
     }
 
     @Test
