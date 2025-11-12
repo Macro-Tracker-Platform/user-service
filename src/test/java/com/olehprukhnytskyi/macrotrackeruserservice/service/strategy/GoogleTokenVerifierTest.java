@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.when;
 
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
@@ -54,8 +55,8 @@ class GoogleTokenVerifierTest {
     void verify_whenNullOrBlankToken_shouldThrowException()
             throws GeneralSecurityException, IOException {
         // Given
-        when(googleIdTokenVerifier.verify(googleIdToken))
-                .thenThrow(GeneralSecurityException.class);
+        when(googleIdTokenVerifier.verify(nullable(String.class)))
+                .thenThrow(new GeneralSecurityException("Invalid token"));
 
         // When
         TokenVerificationException exceptionNull = assertThrows(
