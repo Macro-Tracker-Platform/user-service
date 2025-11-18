@@ -6,9 +6,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.olehprukhnytskyi.exception.BadRequestException;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.SocialUserDetails;
 import com.olehprukhnytskyi.macrotrackeruserservice.service.strategy.SocialTokenVerifier;
-import com.olehprukhnytskyi.macrotrackeruserservice.util.AuthProvider;
+import com.olehprukhnytskyi.util.AuthProvider;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -60,12 +61,12 @@ class SocialTokenVerificationServiceTest {
         when(facebookTokenVerifier.supports(AuthProvider.GOOGLE)).thenReturn(false);
 
         // When
-        IllegalArgumentException exception = assertThrows(
-                IllegalArgumentException.class,
+        BadRequestException exception = assertThrows(
+                BadRequestException.class,
                 () -> socialTokenVerificationService.verifyToken("test_token", AuthProvider.GOOGLE)
         );
 
         // Then
-        assertEquals("Unsupported provider: google", exception.getMessage());
+        assertEquals("Unsupported provider", exception.getMessage());
     }
 }

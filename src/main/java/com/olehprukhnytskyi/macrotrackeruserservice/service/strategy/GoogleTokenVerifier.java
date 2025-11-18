@@ -2,9 +2,10 @@ package com.olehprukhnytskyi.macrotrackeruserservice.service.strategy;
 
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
+import com.olehprukhnytskyi.exception.error.AuthErrorCode;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.SocialUserDetails;
 import com.olehprukhnytskyi.macrotrackeruserservice.exception.TokenVerificationException;
-import com.olehprukhnytskyi.macrotrackeruserservice.util.AuthProvider;
+import com.olehprukhnytskyi.util.AuthProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -30,8 +31,10 @@ public class GoogleTokenVerifier implements SocialTokenVerifier {
             }
         } catch (Exception e) {
             log.error("Google API error during token verification: {}", e.getMessage(), e);
-            throw new TokenVerificationException("Unable to verify Google token", e);
+            throw new TokenVerificationException(AuthErrorCode.TOKEN_VERIFICATION_FAILED,
+                    "Unable to verify Google token", e);
         }
-        throw new TokenVerificationException("Google token is invalid or malformed");
+        throw new TokenVerificationException(AuthErrorCode.INVALID_TOKEN,
+                "Google token is invalid or malformed");
     }
 }

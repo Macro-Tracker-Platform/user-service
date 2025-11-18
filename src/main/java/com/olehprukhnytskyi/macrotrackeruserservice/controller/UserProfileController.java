@@ -6,7 +6,7 @@ import com.olehprukhnytskyi.macrotrackeruserservice.dto.UpdateUserDetailsRequest
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.UserDetailsResponseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.service.UserProfileService;
 import com.olehprukhnytskyi.macrotrackeruserservice.service.UserService;
-import com.olehprukhnytskyi.macrotrackeruserservice.util.CustomHeaders;
+import com.olehprukhnytskyi.util.CustomHeaders;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;

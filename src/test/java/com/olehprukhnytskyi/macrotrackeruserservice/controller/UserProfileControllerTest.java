@@ -22,11 +22,11 @@ import com.olehprukhnytskyi.macrotrackeruserservice.dto.UserDetailsResponseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.OutboxRepository;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.UserProfileRepository;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.UserRepository;
-import com.olehprukhnytskyi.macrotrackeruserservice.service.impl.UserProfileServiceImpl;
-import com.olehprukhnytskyi.macrotrackeruserservice.util.ActivityLevel;
-import com.olehprukhnytskyi.macrotrackeruserservice.util.CustomHeaders;
-import com.olehprukhnytskyi.macrotrackeruserservice.util.Gender;
-import com.olehprukhnytskyi.macrotrackeruserservice.util.Goal;
+import com.olehprukhnytskyi.macrotrackeruserservice.service.UserProfileService;
+import com.olehprukhnytskyi.util.ActivityLevel;
+import com.olehprukhnytskyi.util.CustomHeaders;
+import com.olehprukhnytskyi.util.Gender;
+import com.olehprukhnytskyi.util.Goal;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -63,7 +63,7 @@ class UserProfileControllerTest extends AbstractRedisTest {
     @MockitoBean
     private OutboxRepository outboxRepository;
     @InjectMocks
-    private UserProfileServiceImpl userProfileService;
+    private UserProfileService userProfileService;
 
     @BeforeAll
     static void beforeAll(
@@ -78,7 +78,7 @@ class UserProfileControllerTest extends AbstractRedisTest {
     @DisplayName("When valid userId, should return user details")
     void getUserDetails_whenValidUserId_shouldReturnUserDetails() throws Exception {
         // Given
-        UserDetailsResponseDto responseDto = UserDetailsResponseDto.builder()
+        UserDetailsResponseDto userDetailsResponseDto = UserDetailsResponseDto.builder()
                 .activityLevel(ActivityLevel.LIGHTLY_ACTIVE)
                 .age(20)
                 .gender(Gender.MALE)
@@ -96,7 +96,7 @@ class UserProfileControllerTest extends AbstractRedisTest {
                 .andReturn();
 
         // Then
-        String expected = objectMapper.writeValueAsString(responseDto);
+        String expected = objectMapper.writeValueAsString(userDetailsResponseDto);
         assertEquals(expected, mvcResult.getResponse().getContentAsString());
     }
 
@@ -115,7 +115,7 @@ class UserProfileControllerTest extends AbstractRedisTest {
     @DisplayName("When valid userId, should return user goal")
     void getUserGoal_whenValidUserId_shouldReturnUserGoal() throws Exception {
         // Given
-        GoalResponseDto responseDto = GoalResponseDto
+        GoalResponseDto goalResponseDto = GoalResponseDto
                 .builder()
                 .calories(3000)
                 .carbohydrates(300)
@@ -132,7 +132,7 @@ class UserProfileControllerTest extends AbstractRedisTest {
                 .andReturn();
 
         // Then
-        String expected = objectMapper.writeValueAsString(responseDto);
+        String expected = objectMapper.writeValueAsString(goalResponseDto);
         assertEquals(expected, mvcResult.getResponse().getContentAsString());
     }
 
@@ -192,7 +192,7 @@ class UserProfileControllerTest extends AbstractRedisTest {
                 .recalculate(true)
                 .build();
         String requestJson = objectMapper.writeValueAsString(requestDto);
-        UserDetailsResponseDto responseDto = UserDetailsResponseDto.builder()
+        UserDetailsResponseDto userDetailsResponseDto = UserDetailsResponseDto.builder()
                 .age(51)
                 .weight(70)
                 .height(180)
@@ -216,7 +216,7 @@ class UserProfileControllerTest extends AbstractRedisTest {
         // Then
         verify(goalClient, times(1)).calculateGoal(any());
 
-        String expected = objectMapper.writeValueAsString(responseDto);
+        String expected = objectMapper.writeValueAsString(userDetailsResponseDto);
         assertEquals(expected, mvcResult.getResponse().getContentAsString());
     }
 
@@ -235,7 +235,7 @@ class UserProfileControllerTest extends AbstractRedisTest {
                 .recalculate(false)
                 .build();
         String requestJson = objectMapper.writeValueAsString(requestDto);
-        UserDetailsResponseDto responseDto = UserDetailsResponseDto.builder()
+        UserDetailsResponseDto userDetailsResponseDto = UserDetailsResponseDto.builder()
                 .age(30)
                 .weight(80)
                 .height(175)
@@ -255,7 +255,7 @@ class UserProfileControllerTest extends AbstractRedisTest {
                 .andReturn();
 
         // Then
-        String expected = objectMapper.writeValueAsString(responseDto);
+        String expected = objectMapper.writeValueAsString(userDetailsResponseDto);
         assertEquals(expected, mvcResult.getResponse().getContentAsString());
 
         verify(goalClient, never()).calculateGoal(any());
@@ -284,7 +284,8 @@ class UserProfileControllerTest extends AbstractRedisTest {
                 .andReturn();
 
         // Then
-        assertEquals(requestJson, mvcResult.getResponse().getContentAsString());
+        String expected = objectMapper.writeValueAsString(requestDto);
+        assertEquals(expected, mvcResult.getResponse().getContentAsString());
 
         verify(userProfileRepository, times(1)).findById(userId);
         verify(userProfileRepository, times(1)).save(any());

@@ -3,6 +3,8 @@ package com.olehprukhnytskyi.macrotrackeruserservice.job;
 import com.olehprukhnytskyi.macrotrackeruserservice.model.OutboxEvent;
 import com.olehprukhnytskyi.macrotrackeruserservice.producer.UserEventProducer;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.OutboxRepository;
+import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,14 +24,25 @@ public class OutboxJob {
     public void processUserDeletedEvents() {
         List<OutboxEvent> events = outboxRepository
                 .findTop100ByProcessedFalseAndEventTypeOrderByCreatedAtAsc("USER_DELETED");
+        if (events.isEmpty()) {
+            return;
+        }
+
+        List<OutboxEvent> processedEvents = new ArrayList<>();
         for (OutboxEvent event : events) {
             try {
                 Long userId = Long.parseLong(event.getAggregateId());
                 userEventProducer.sendUserDeletedEvent(userId);
+
+                event.setProcessed(true);
+                event.setProcessedAt(Instant.now());
+                processedEvents.add(event);
             } catch (Exception e) {
                 log.error("Failed to process outbox event {}: {}", event.getId(), e.getMessage());
             }
         }
-        outboxRepository.saveAll(events);
+        if (!processedEvents.isEmpty()) {
+            outboxRepository.saveAll(processedEvents);
+        }
     }
 }

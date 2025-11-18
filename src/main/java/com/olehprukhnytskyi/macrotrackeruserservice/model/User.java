@@ -1,6 +1,6 @@
 package com.olehprukhnytskyi.macrotrackeruserservice.model;
 
-import com.olehprukhnytskyi.macrotrackeruserservice.util.AuthProvider;
+import com.olehprukhnytskyi.util.AuthProvider;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

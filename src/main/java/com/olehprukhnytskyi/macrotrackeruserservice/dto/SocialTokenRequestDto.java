@@ -1,6 +1,6 @@
 package com.olehprukhnytskyi.macrotrackeruserservice.dto;
 
-import com.olehprukhnytskyi.macrotrackeruserservice.util.AuthProvider;
+import com.olehprukhnytskyi.util.AuthProvider;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;

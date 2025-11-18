@@ -1,6 +1,6 @@
 package com.olehprukhnytskyi.macrotrackeruserservice.filter;
 
-import com.olehprukhnytskyi.macrotrackeruserservice.util.CustomHeaders;
+import com.olehprukhnytskyi.util.CustomHeaders;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;

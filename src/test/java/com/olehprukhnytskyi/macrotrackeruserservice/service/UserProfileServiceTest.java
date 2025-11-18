@@ -1,4 +1,4 @@
-package com.olehprukhnytskyi.macrotrackeruserservice.service.impl;
+package com.olehprukhnytskyi.macrotrackeruserservice.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -11,20 +11,20 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.olehprukhnytskyi.exception.NotFoundException;
 import com.olehprukhnytskyi.macrotrackeruserservice.client.GoalClient;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.GoalResponseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.UpdateGoalRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.UpdateUserDetailsRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.UserDetailsResponseDto;
-import com.olehprukhnytskyi.macrotrackeruserservice.exception.NotFoundException;
 import com.olehprukhnytskyi.macrotrackeruserservice.mapper.UserProfileMapper;
 import com.olehprukhnytskyi.macrotrackeruserservice.model.UserProfile;
 import com.olehprukhnytskyi.macrotrackeruserservice.projection.UserDetailsProjection;
 import com.olehprukhnytskyi.macrotrackeruserservice.projection.UserGoalProjection;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.UserProfileRepository;
-import com.olehprukhnytskyi.macrotrackeruserservice.util.ActivityLevel;
-import com.olehprukhnytskyi.macrotrackeruserservice.util.Gender;
-import com.olehprukhnytskyi.macrotrackeruserservice.util.Goal;
+import com.olehprukhnytskyi.util.ActivityLevel;
+import com.olehprukhnytskyi.util.Gender;
+import com.olehprukhnytskyi.util.Goal;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -34,7 +34,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class UserProfileServiceImplTest {
+class UserProfileServiceTest {
     @Mock
     private UserProfileRepository userProfileRepository;
     @Mock
@@ -43,7 +43,7 @@ class UserProfileServiceImplTest {
     private GoalClient goalClient;
 
     @InjectMocks
-    private UserProfileServiceImpl userProfileService;
+    private UserProfileService userProfileService;
 
     @Test
     @DisplayName("When valid userId, should return user details")

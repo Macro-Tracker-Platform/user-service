@@ -1,4 +1,4 @@
-package com.olehprukhnytskyi.macrotrackeruserservice.service.impl;
+package com.olehprukhnytskyi.macrotrackeruserservice.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -19,9 +19,8 @@ import com.olehprukhnytskyi.macrotrackeruserservice.mapper.UserMapper;
 import com.olehprukhnytskyi.macrotrackeruserservice.mapper.UserProfileMapper;
 import com.olehprukhnytskyi.macrotrackeruserservice.model.User;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.UserRepository;
-import com.olehprukhnytskyi.macrotrackeruserservice.service.SocialTokenVerificationService;
-import com.olehprukhnytskyi.macrotrackeruserservice.util.AuthProvider;
 import com.olehprukhnytskyi.macrotrackeruserservice.util.JwtUtil;
+import com.olehprukhnytskyi.util.AuthProvider;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -32,7 +31,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
-class AuthServiceImplTest {
+class AuthServiceTest {
     @Mock
     private SocialTokenVerificationService tokenVerificationService;
     @Mock
@@ -47,7 +46,7 @@ class AuthServiceImplTest {
     private UserProfileMapper userProfileMapper;
 
     @InjectMocks
-    private AuthServiceImpl authService;
+    private AuthService authService;
 
     @Test
     @DisplayName("Should throw an exception, when user does not exist")

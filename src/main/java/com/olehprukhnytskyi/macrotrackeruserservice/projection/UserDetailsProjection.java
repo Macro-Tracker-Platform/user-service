@@ -1,8 +1,8 @@
 package com.olehprukhnytskyi.macrotrackeruserservice.projection;
 
-import com.olehprukhnytskyi.macrotrackeruserservice.util.ActivityLevel;
-import com.olehprukhnytskyi.macrotrackeruserservice.util.Gender;
-import com.olehprukhnytskyi.macrotrackeruserservice.util.Goal;
+import com.olehprukhnytskyi.util.ActivityLevel;
+import com.olehprukhnytskyi.util.Gender;
+import com.olehprukhnytskyi.util.Goal;
 
 public interface UserDetailsProjection {
     Integer getAge();

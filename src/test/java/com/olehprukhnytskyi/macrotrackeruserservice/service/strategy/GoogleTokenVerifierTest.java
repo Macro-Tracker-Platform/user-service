@@ -11,7 +11,7 @@ import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.SocialUserDetails;
 import com.olehprukhnytskyi.macrotrackeruserservice.exception.TokenVerificationException;
-import com.olehprukhnytskyi.macrotrackeruserservice.util.AuthProvider;
+import com.olehprukhnytskyi.util.AuthProvider;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 import org.junit.jupiter.api.DisplayName;

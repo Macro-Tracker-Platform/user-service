@@ -14,6 +14,10 @@ public interface UserMapper {
     @Mapping(target = "authProvider", constant = "LOCAL")
     User toUser(RegisterRequestDto dto);
 
-    @Mapping(target = "user", source = "user")
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "calories", ignore = true)
+    @Mapping(target = "carbohydrates", ignore = true)
+    @Mapping(target = "fat", ignore = true)
+    @Mapping(target = "protein", ignore = true)
     UserProfile toUserProfile(UserDetailsRequestDto dto, User user);
 }

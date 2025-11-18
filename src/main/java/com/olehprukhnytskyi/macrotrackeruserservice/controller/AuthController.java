@@ -1,6 +1,5 @@
 package com.olehprukhnytskyi.macrotrackeruserservice.controller;
 
-import com.olehprukhnytskyi.macrotrackeruserservice.dto.ApiResponse;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.AuthResponseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.LoginRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.RegisterRequestDto;
@@ -33,12 +32,12 @@ public class AuthController {
             description = "Authenticate user with email and password"
     )
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<AuthResponseDto>> login(
+    public ResponseEntity<AuthResponseDto> login(
             @RequestBody @Valid LoginRequestDto requestDto) {
         log.info("Login request received");
         String token = authService.login(requestDto);
         log.info("Login successful");
-        return ResponseEntity.ok(ApiResponse.success(new AuthResponseDto(token)));
+        return ResponseEntity.ok(new AuthResponseDto(token));
     }
 
     @Operation(
@@ -46,12 +45,12 @@ public class AuthController {
             description = "Create new user account with profile details"
     )
     @PostMapping("/register")
-    public ResponseEntity<ApiResponse<AuthResponseDto>> register(
+    public ResponseEntity<AuthResponseDto> register(
             @RequestBody @Valid RegisterRequestDto requestDto) {
         log.info("Registration request received");
         String token = authService.register(requestDto);
         log.info("Registration successful");
-        return ResponseEntity.ok(ApiResponse.success(new AuthResponseDto(token)));
+        return ResponseEntity.ok(new AuthResponseDto(token));
     }
 
     @Operation(
@@ -59,11 +58,11 @@ public class AuthController {
             description = "Authenticate using social providers (Google, Facebook, etc.)"
     )
     @PostMapping("/social")
-    public ResponseEntity<ApiResponse<AuthResponseDto>> authenticateWithSocial(
+    public ResponseEntity<AuthResponseDto> authenticateWithSocial(
             @RequestBody @Valid SocialTokenRequestDto requestDto) {
         log.info("Social authentication request received");
         String token = authService.authenticateWithSocial(requestDto);
         log.info("Social authentication successful");
-        return ResponseEntity.ok(ApiResponse.success(new AuthResponseDto(token)));
+        return ResponseEntity.ok(new AuthResponseDto(token));
     }
 }
