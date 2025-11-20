@@ -14,8 +14,8 @@
                         "thread": "%thread",
                         "logger": "%logger{36}",
                         "message": "%message",
-                        "traceId": "%X{traceId:-}",
-                        "spanId": "%X{spanId:-}",
+                        "traceId": "%X{trace_id:-}",
+                        "spanId": "%X{span_id:-}",
                         "exception": "%replace(%ex){'\n','\\n'}"
                         }
                     </pattern>

@@ -125,6 +125,7 @@ class AuthControllerTest {
                 .title(errorCode.getTitle())
                 .status(errorCode.getStatus())
                 .detail("Invalid email or password")
+                .traceId("N/A")
                 .code(errorCode.getCode())
                 .build();
 
@@ -160,6 +161,7 @@ class AuthControllerTest {
         ProblemDetails problemDetails = ProblemDetails.builder()
                 .title(errorCode.getTitle())
                 .status(errorCode.getStatus())
+                .traceId("N/A")
                 .detail("An account with this email already exists")
                 .code(errorCode.getCode())
                 .build();
