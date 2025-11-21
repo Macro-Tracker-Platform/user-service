@@ -1,8 +1,10 @@
 FROM maven:3.8.5-openjdk-17 AS build
+WORKDIR /app
 COPY . .
 RUN mvn clean package -DskipTests
 
-FROM openjdk:17-alpine
-COPY --from=build /target/macro-tracker-user-service-0.0.1-SNAPSHOT.jar macro-tracker-user-service.jar
+FROM eclipse-temurin:17-jre-alpine
+WORKDIR /app
+COPY --from=build /app/target/*.jar macro-tracker-user-service.jar
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "macro-tracker-user-service.jar"]
