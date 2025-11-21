@@ -15,6 +15,23 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Configure Maven settings
+        run: |
+          mkdir -p ~/.m2
+          cat > ~/.m2/settings.xml <<EOF
+          <settings>
+          <servers>
+          <server>
+          <id>github</id>
+          <username>oleh-prukhnytskyi</username>
+          <password>${PACKAGES_PASSWORD}</password>
+          </server>
+          </servers>
+          </settings>
+          EOF
+        env:
+          PACKAGES_PASSWORD: ${{ secrets.PACKAGES_PASSWORD }}
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
