@@ -58,7 +58,7 @@ jobs:
         env:
           MAVEN_USERNAME: ${{ github.actor }}
           MAVEN_PASSWORD: ${{ secrets.PACKAGES_TOKEN }}
-        run: mvn clean install -U
+        run: mvn test
 
   build-and-deploy:
     name: Build & Push Docker Image
