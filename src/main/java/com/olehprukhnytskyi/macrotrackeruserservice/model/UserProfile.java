@@ -1,8 +1,8 @@
 package com.olehprukhnytskyi.macrotrackeruserservice.model;
 
-import com.olehprukhnytskyi.macrotrackeruserservice.util.ActivityLevel;
-import com.olehprukhnytskyi.macrotrackeruserservice.util.Gender;
-import com.olehprukhnytskyi.macrotrackeruserservice.util.Goal;
+import com.olehprukhnytskyi.util.ActivityLevel;
+import com.olehprukhnytskyi.util.Gender;
+import com.olehprukhnytskyi.util.Goal;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

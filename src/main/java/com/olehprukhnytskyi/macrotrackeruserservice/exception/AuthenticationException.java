@@ -1,7 +1,10 @@
 package com.olehprukhnytskyi.macrotrackeruserservice.exception;
 
-public class AuthenticationException extends RuntimeException {
-    public AuthenticationException(String message) {
-        super(message);
+import com.olehprukhnytskyi.exception.BaseException;
+import com.olehprukhnytskyi.exception.error.BaseErrorCode;
+
+public class AuthenticationException extends BaseException {
+    public AuthenticationException(BaseErrorCode errorCode, String message) {
+        super(errorCode, message);
     }
 }

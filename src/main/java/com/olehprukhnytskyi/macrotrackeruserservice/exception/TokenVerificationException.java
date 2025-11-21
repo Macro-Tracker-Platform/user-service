@@ -1,11 +1,14 @@
 package com.olehprukhnytskyi.macrotrackeruserservice.exception;
 
-public class TokenVerificationException extends RuntimeException {
-    public TokenVerificationException(String message) {
-        super(message);
+import com.olehprukhnytskyi.exception.BaseException;
+import com.olehprukhnytskyi.exception.error.BaseErrorCode;
+
+public class TokenVerificationException extends BaseException {
+    public TokenVerificationException(BaseErrorCode errorCode, String message) {
+        super(errorCode, message);
     }
 
-    public TokenVerificationException(String message, Throwable cause) {
-        super(message, cause);
+    public TokenVerificationException(BaseErrorCode errorCode, String message, Throwable cause) {
+        super(errorCode, message, cause);
     }
 }

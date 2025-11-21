@@ -10,9 +10,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.olehprukhnytskyi.dto.ProblemDetails;
+import com.olehprukhnytskyi.exception.error.AuthErrorCode;
+import com.olehprukhnytskyi.exception.error.BaseErrorCode;
 import com.olehprukhnytskyi.macrotrackeruserservice.client.GoalClient;
-import com.olehprukhnytskyi.macrotrackeruserservice.dto.ApiError;
-import com.olehprukhnytskyi.macrotrackeruserservice.dto.ApiResponse;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.AuthResponseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.GoalResponseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.LoginRequestDto;
@@ -22,11 +23,11 @@ import com.olehprukhnytskyi.macrotrackeruserservice.dto.SocialUserDetails;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.UserDetailsRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.UserRepository;
 import com.olehprukhnytskyi.macrotrackeruserservice.service.SocialTokenVerificationService;
-import com.olehprukhnytskyi.macrotrackeruserservice.util.ActivityLevel;
-import com.olehprukhnytskyi.macrotrackeruserservice.util.AuthProvider;
-import com.olehprukhnytskyi.macrotrackeruserservice.util.Gender;
-import com.olehprukhnytskyi.macrotrackeruserservice.util.Goal;
 import com.olehprukhnytskyi.macrotrackeruserservice.util.JwtUtil;
+import com.olehprukhnytskyi.util.ActivityLevel;
+import com.olehprukhnytskyi.util.AuthProvider;
+import com.olehprukhnytskyi.util.Gender;
+import com.olehprukhnytskyi.util.Goal;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -92,8 +93,9 @@ class AuthControllerTest {
         LoginRequestDto requestDto = new LoginRequestDto("test@example.com", "password");
         String jsonRequest = objectMapper.writeValueAsString(requestDto);
 
-        ApiResponse<AuthResponseDto> responseDto = ApiResponse
-                .success(new AuthResponseDto("jwt_token"));
+        AuthResponseDto responseDto = AuthResponseDto.builder()
+                .token("jwt_token")
+                .build();
 
         given(jwtUtil.generateToken(any())).willReturn("jwt_token");
 
@@ -118,8 +120,14 @@ class AuthControllerTest {
         LoginRequestDto requestDto = new LoginRequestDto("test@example.com", "password");
         String jsonRequest = objectMapper.writeValueAsString(requestDto);
 
-        ApiResponse<AuthResponseDto> responseDto = ApiResponse
-                .error(new ApiError("token", "Invalid email or password"));
+        BaseErrorCode errorCode = AuthErrorCode.INVALID_CREDENTIALS;
+        ProblemDetails problemDetails = ProblemDetails.builder()
+                .title(errorCode.getTitle())
+                .status(errorCode.getStatus())
+                .detail("Invalid email or password")
+                .traceId("N/A")
+                .code(errorCode.getCode())
+                .build();
 
         // When
         MvcResult mvcResult = mockMvc.perform(
@@ -131,7 +139,7 @@ class AuthControllerTest {
                 .andReturn();
 
         // Then
-        String expected = objectMapper.writeValueAsString(responseDto);
+        String expected = objectMapper.writeValueAsString(problemDetails);
         assertEquals(expected, mvcResult.getResponse().getContentAsString());
     }
 
@@ -140,16 +148,23 @@ class AuthControllerTest {
     @Sql(scripts = "classpath:database/remove-user-for-auth.sql",
             executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
     @Test
-    @DisplayName("When user exists, should return unauthorized status")
-    void register_whenUserExists_shouldReturnUnauthorized() throws Exception {
+    @DisplayName("When user already exists, should return unauthorized status")
+    void register_whenUserAlreadyExists_shouldReturnUnauthorized() throws Exception {
         // GIven
         RegisterRequestDto requestDto = new RegisterRequestDto(
                 "test@example.com", "password", "password");
         requestDto.setUserDetails(userDetailsDto);
 
         String jsonRequest = objectMapper.writeValueAsString(requestDto);
-        ApiResponse<AuthResponseDto> responseDto = ApiResponse
-                .error(new ApiError("token", "An account with this email already exists"));
+
+        BaseErrorCode errorCode = AuthErrorCode.EMAIL_ALREADY_EXISTS;
+        ProblemDetails problemDetails = ProblemDetails.builder()
+                .title(errorCode.getTitle())
+                .status(errorCode.getStatus())
+                .traceId("N/A")
+                .detail("An account with this email already exists")
+                .code(errorCode.getCode())
+                .build();
 
         // When
         MvcResult mvcResult = mockMvc.perform(
@@ -157,11 +172,11 @@ class AuthControllerTest {
                                 .content(jsonRequest)
                                 .contentType(MediaType.APPLICATION_JSON)
                 )
-                .andExpect(status().isUnauthorized())
+                .andExpect(status().isConflict())
                 .andReturn();
 
         // Then
-        String expected = objectMapper.writeValueAsString(responseDto);
+        String expected = objectMapper.writeValueAsString(problemDetails);
         assertEquals(expected, mvcResult.getResponse().getContentAsString());
     }
 
@@ -174,8 +189,9 @@ class AuthControllerTest {
         requestDto.setUserDetails(userDetailsDto);
 
         String jsonRequest = objectMapper.writeValueAsString(requestDto);
-        ApiResponse<AuthResponseDto> responseDto = ApiResponse
-                .success(new AuthResponseDto("jwt_token"));
+        AuthResponseDto responseDto = AuthResponseDto.builder()
+                .token("jwt_token")
+                .build();
 
         given(jwtUtil.generateToken(any())).willReturn("jwt_token");
         when(goalClient.calculateGoal(any())).thenReturn(new GoalResponseDto());
@@ -210,8 +226,9 @@ class AuthControllerTest {
         requestDto.setUserDetails(userDetailsDto);
 
         String requestJson = objectMapper.writeValueAsString(requestDto);
-        ApiResponse<AuthResponseDto> responseDto = ApiResponse
-                .success(new AuthResponseDto("jwt_token"));
+        AuthResponseDto responseDto = AuthResponseDto.builder()
+                .token("jwt_token")
+                .build();
 
         given(jwtUtil.generateToken(any())).willReturn("jwt_token");
         given(tokenVerificationService.verifyToken(any(), any()))
@@ -243,8 +260,9 @@ class AuthControllerTest {
         requestDto.setUserDetails(userDetailsDto);
 
         String requestJson = objectMapper.writeValueAsString(requestDto);
-        ApiResponse<AuthResponseDto> responseDto = ApiResponse
-                .success(new AuthResponseDto("jwt_token"));
+        AuthResponseDto responseDto = AuthResponseDto.builder()
+                .token("jwt_token")
+                .build();
 
         given(jwtUtil.generateToken(any())).willReturn("jwt_token");
         given(tokenVerificationService.verifyToken(any(), any()))

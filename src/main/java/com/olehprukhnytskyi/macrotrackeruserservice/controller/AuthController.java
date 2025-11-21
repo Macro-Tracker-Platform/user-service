@@ -1,43 +1,68 @@
 package com.olehprukhnytskyi.macrotrackeruserservice.controller;
 
-import com.olehprukhnytskyi.macrotrackeruserservice.dto.ApiResponse;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.AuthResponseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.LoginRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.RegisterRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.SocialTokenRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.service.AuthService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+@Slf4j
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/auth")
+@Tag(
+        name = "Authentication API",
+        description = "User authentication and registration endpoints"
+)
 public class AuthController {
     private final AuthService authService;
 
+    @Operation(
+            summary = "User login",
+            description = "Authenticate user with email and password"
+    )
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<AuthResponseDto>> login(
+    public ResponseEntity<AuthResponseDto> login(
             @RequestBody @Valid LoginRequestDto requestDto) {
+        log.info("Login request received");
         String token = authService.login(requestDto);
-        return ResponseEntity.ok(ApiResponse.success(new AuthResponseDto(token)));
+        log.info("Login successful");
+        return ResponseEntity.ok(new AuthResponseDto(token));
     }
 
+    @Operation(
+            summary = "User registration",
+            description = "Create new user account with profile details"
+    )
     @PostMapping("/register")
-    public ResponseEntity<ApiResponse<AuthResponseDto>> register(
+    public ResponseEntity<AuthResponseDto> register(
             @RequestBody @Valid RegisterRequestDto requestDto) {
+        log.info("Registration request received");
         String token = authService.register(requestDto);
-        return ResponseEntity.ok(ApiResponse.success(new AuthResponseDto(token)));
+        log.info("Registration successful");
+        return ResponseEntity.ok(new AuthResponseDto(token));
     }
 
+    @Operation(
+            summary = "Social authentication",
+            description = "Authenticate using social providers (Google, Facebook, etc.)"
+    )
     @PostMapping("/social")
-    public ResponseEntity<ApiResponse<AuthResponseDto>> authenticateWithSocial(
+    public ResponseEntity<AuthResponseDto> authenticateWithSocial(
             @RequestBody @Valid SocialTokenRequestDto requestDto) {
+        log.info("Social authentication request received");
         String token = authService.authenticateWithSocial(requestDto);
-        return ResponseEntity.ok(ApiResponse.success(new AuthResponseDto(token)));
+        log.info("Social authentication successful");
+        return ResponseEntity.ok(new AuthResponseDto(token));
     }
 }
