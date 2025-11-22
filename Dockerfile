@@ -1,10 +1,5 @@
-FROM maven:3.9-eclipse-temurin-21 AS build
-WORKDIR /app
-COPY . .
-RUN mvn clean package -DskipTests
-
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
-COPY --from=build /app/target/*.jar macro-tracker-user-service.jar
+COPY target/*.jar macro-tracker-user-service.jar
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "macro-tracker-user-service.jar"]
