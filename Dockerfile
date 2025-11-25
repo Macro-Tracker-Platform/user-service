@@ -1,4 +1,4 @@
-FROM maven:3.9.5-openjdk-21 AS build
+FROM maven:3.9.5-openjdk-21-slim AS build
 WORKDIR /app
 COPY . .
 COPY opentelemetry-javaagent.jar /app/opentelemetry-javaagent.jar
