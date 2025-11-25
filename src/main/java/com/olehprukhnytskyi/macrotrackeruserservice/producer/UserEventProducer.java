@@ -19,7 +19,7 @@ public class UserEventProducer {
         try {
             UserDeletedEvent event = new UserDeletedEvent(userId);
             String payload = objectMapper.writeValueAsString(event);
-            kafkaTemplate.send("user-deleted", payload);
+            kafkaTemplate.send("user-deleted", payload).get();
         } catch (JsonProcessingException e) {
             throw new EventProcessingException(EventErrorCode.KAFKA_SEND_FAILED,
                     "Cannot serialize event payload", e);
