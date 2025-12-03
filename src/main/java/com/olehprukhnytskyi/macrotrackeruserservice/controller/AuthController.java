@@ -2,6 +2,7 @@ package com.olehprukhnytskyi.macrotrackeruserservice.controller;
 
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.AuthResponseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.LoginRequestDto;
+import com.olehprukhnytskyi.macrotrackeruserservice.dto.RefreshRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.RegisterRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.SocialTokenRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.service.AuthService;
@@ -35,9 +36,21 @@ public class AuthController {
     public ResponseEntity<AuthResponseDto> login(
             @RequestBody @Valid LoginRequestDto requestDto) {
         log.info("Login request received");
-        String token = authService.login(requestDto);
+        AuthResponseDto tokens = authService.login(requestDto);
         log.info("Login successful");
-        return ResponseEntity.ok(new AuthResponseDto(token));
+        return ResponseEntity.ok(tokens);
+    }
+
+    @Operation(
+            summary = "Refresh access token",
+            description = "Generate a new pair of access and"
+                    + " refresh tokens using a valid refresh token"
+    )
+    @PostMapping("/refresh")
+    public ResponseEntity<AuthResponseDto> refresh(@RequestBody @Valid RefreshRequestDto dto) {
+        log.info("Refresh token request");
+        AuthResponseDto tokens = authService.refreshToken(dto.getRefreshToken());
+        return ResponseEntity.ok(tokens);
     }
 
     @Operation(
@@ -48,9 +61,9 @@ public class AuthController {
     public ResponseEntity<AuthResponseDto> register(
             @RequestBody @Valid RegisterRequestDto requestDto) {
         log.info("Registration request received");
-        String token = authService.register(requestDto);
+        AuthResponseDto tokens = authService.register(requestDto);
         log.info("Registration successful");
-        return ResponseEntity.ok(new AuthResponseDto(token));
+        return ResponseEntity.ok(tokens);
     }
 
     @Operation(
@@ -61,8 +74,8 @@ public class AuthController {
     public ResponseEntity<AuthResponseDto> authenticateWithSocial(
             @RequestBody @Valid SocialTokenRequestDto requestDto) {
         log.info("Social authentication request received");
-        String token = authService.authenticateWithSocial(requestDto);
+        AuthResponseDto tokens = authService.authenticateWithSocial(requestDto);
         log.info("Social authentication successful");
-        return ResponseEntity.ok(new AuthResponseDto(token));
+        return ResponseEntity.ok(tokens);
     }
 }

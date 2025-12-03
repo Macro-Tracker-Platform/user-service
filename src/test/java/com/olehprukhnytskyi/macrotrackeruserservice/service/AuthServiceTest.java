@@ -3,12 +3,14 @@ package com.olehprukhnytskyi.macrotrackeruserservice.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.olehprukhnytskyi.macrotrackeruserservice.client.GoalClient;
+import com.olehprukhnytskyi.macrotrackeruserservice.dto.AuthResponseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.GoalResponseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.LoginRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.RegisterRequestDto;
@@ -29,6 +31,7 @@ import org.mindrot.jbcrypt.BCrypt;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 @ExtendWith(MockitoExtension.class)
 class AuthServiceTest {
@@ -44,6 +47,8 @@ class AuthServiceTest {
     private GoalClient goalClient;
     @Mock
     private UserProfileMapper userProfileMapper;
+    @Mock
+    private PasswordEncoder passwordEncoder;
 
     @InjectMocks
     private AuthService authService;
@@ -101,17 +106,23 @@ class AuthServiceTest {
 
         User userFromDb = new User();
         userFromDb.setEmail("test@example.com");
-        userFromDb.setPassword(BCrypt.hashpw("password", BCrypt.gensalt()));
+        userFromDb.setPassword("encoded_string");
 
         when(userRepository.findByEmail("test@example.com"))
                 .thenReturn(Optional.of(userFromDb));
-        when(jwtUtil.generateToken(userFromDb)).thenReturn("jwt_token");
+        when(jwtUtil.generateAccessToken(userFromDb.getId(), userFromDb.getEmail()))
+                .thenReturn("jwt_access_token");
+        when(jwtUtil.generateRefreshToken(userFromDb.getId(), userFromDb.getEmail()))
+                .thenReturn("jwt_refresh_token");
+        when(passwordEncoder.matches(loginRequestDto.getPassword(), userFromDb.getPassword()))
+                .thenReturn(Boolean.TRUE);
 
         // When
-        String actualJwt = authService.login(loginRequestDto);
+        AuthResponseDto authResponse = authService.login(loginRequestDto);
 
         // Then
-        assertEquals("jwt_token", actualJwt);
+        assertEquals("jwt_access_token", authResponse.getAccessToken());
+        assertEquals("jwt_refresh_token", authResponse.getRefreshToken());
     }
 
     @Test
@@ -142,22 +153,30 @@ class AuthServiceTest {
         // Given
         RegisterRequestDto registerRequestDto = new RegisterRequestDto();
         registerRequestDto.setEmail("test@example.com");
+        registerRequestDto.setPassword("password");
+        registerRequestDto.setConfirmPassword("password");
 
         User userFromDb = new User();
         userFromDb.setEmail("test@example.com");
+        userFromDb.setPassword("encoded_string");
 
         when(userRepository.findByEmail("test@example.com"))
                 .thenReturn(Optional.empty());
         when(userRepository.save(any())).thenReturn(userFromDb);
         when(userMapper.toUser(any())).thenReturn(userFromDb);
         when(goalClient.calculateGoal(any())).thenReturn(new GoalResponseDto());
-        when(jwtUtil.generateToken(userFromDb)).thenReturn("jwt_token");
+        when(jwtUtil.generateAccessToken(userFromDb.getId(), userFromDb.getEmail()))
+                .thenReturn("jwt_access_token");
+        when(jwtUtil.generateRefreshToken(userFromDb.getId(), userFromDb.getEmail()))
+                .thenReturn("jwt_refresh_token");
+        when(passwordEncoder.encode(anyString())).thenReturn("encoded_string");
 
         // When
-        String actualJwt = authService.register(registerRequestDto);
+        AuthResponseDto authResponse = authService.register(registerRequestDto);
 
         // Then
-        assertEquals("jwt_token", actualJwt);
+        assertEquals("jwt_access_token", authResponse.getAccessToken());
+        assertEquals("jwt_refresh_token", authResponse.getRefreshToken());
     }
 
     @Test
@@ -167,6 +186,7 @@ class AuthServiceTest {
     void authenticateWithSocial_whenUserDoesNotExist_shouldReturnJwtToken() {
         // Given
         User user = new User();
+        user.setId(1L);
         user.setEmail("test@example.com");
         user.setAuthProvider(AuthProvider.GOOGLE);
 
@@ -178,13 +198,17 @@ class AuthServiceTest {
                 .thenReturn(userPayload);
         when(userRepository.findByEmail(anyString())).thenReturn(Optional.empty());
         when(userRepository.save(any(User.class))).thenReturn(user);
-        when(jwtUtil.generateToken(any())).thenReturn("jwt_token");
+        when(jwtUtil.generateAccessToken(anyLong(), anyString()))
+                .thenReturn("jwt_access_token");
+        when(jwtUtil.generateRefreshToken(anyLong(), anyString()))
+                .thenReturn("jwt_refresh_token");
 
         // When
-        String actualJwt = authService.authenticateWithSocial(tokenRequestDto);
+        AuthResponseDto authResponse = authService.authenticateWithSocial(tokenRequestDto);
 
         // Then
-        assertEquals("jwt_token", actualJwt);
+        assertEquals("jwt_access_token", authResponse.getAccessToken());
+        assertEquals("jwt_refresh_token", authResponse.getRefreshToken());
         verify(userRepository).save(any(User.class));
     }
 
@@ -194,9 +218,8 @@ class AuthServiceTest {
             + " should return a JWT token")
     void authenticateWithSocial_whenUserExists_shouldReturnJwtToken() {
         // Given
-        SocialUserDetails userPayload = new SocialUserDetails("test@example.com");
-
         User user = new User();
+        user.setId(1L);
         user.setEmail("test@example.com");
         user.setAuthProvider(AuthProvider.GOOGLE);
 
@@ -204,15 +227,19 @@ class AuthServiceTest {
                 "test_token", AuthProvider.GOOGLE);
 
         when(tokenVerificationService.verifyToken(anyString(), any()))
-                .thenReturn(userPayload);
+                .thenReturn(new SocialUserDetails("test@example.com"));
         when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(user));
-        when(jwtUtil.generateToken(any())).thenReturn("jwt_token");
+        when(jwtUtil.generateAccessToken(anyLong(), anyString()))
+                .thenReturn("jwt_access_token");
+        when(jwtUtil.generateRefreshToken(anyLong(), anyString()))
+                .thenReturn("jwt_refresh_token");
 
         // When
-        String actualJwt = authService.authenticateWithSocial(tokenRequestDto);
+        AuthResponseDto authResponse = authService.authenticateWithSocial(tokenRequestDto);
 
         // Then
-        assertEquals("jwt_token", actualJwt);
+        assertEquals("jwt_access_token", authResponse.getAccessToken());
+        assertEquals("jwt_refresh_token", authResponse.getRefreshToken());
         verify(userRepository, never()).save(any());
     }
 }

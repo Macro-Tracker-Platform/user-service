@@ -13,6 +13,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.nimbusds.jose.crypto.RSASSASigner;
+import com.nimbusds.jose.jwk.JWKSet;
+import com.nimbusds.jose.jwk.RSAKey;
 import com.olehprukhnytskyi.macrotrackeruserservice.client.GoalClient;
 import com.olehprukhnytskyi.macrotrackeruserservice.config.AbstractRedisTest;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.GoalResponseDto;
@@ -27,6 +30,7 @@ import com.olehprukhnytskyi.util.ActivityLevel;
 import com.olehprukhnytskyi.util.CustomHeaders;
 import com.olehprukhnytskyi.util.Gender;
 import com.olehprukhnytskyi.util.Goal;
+import java.security.KeyPair;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -64,6 +68,14 @@ class UserProfileControllerTest extends AbstractRedisTest {
     private OutboxRepository outboxRepository;
     @InjectMocks
     private UserProfileService userProfileService;
+    @MockitoBean
+    private RSAKey rsaKey;
+    @MockitoBean
+    private JWKSet jwkSet;
+    @MockitoBean
+    private KeyPair keyPair;
+    @MockitoBean
+    private RSASSASigner rsassaSigner;
 
     @BeforeAll
     static void beforeAll(

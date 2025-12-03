@@ -2,6 +2,8 @@ package com.olehprukhnytskyi.macrotrackeruserservice.controller;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -10,6 +12,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.nimbusds.jose.crypto.RSASSASigner;
+import com.nimbusds.jose.jwk.JWKSet;
+import com.nimbusds.jose.jwk.RSAKey;
 import com.olehprukhnytskyi.dto.ProblemDetails;
 import com.olehprukhnytskyi.exception.error.AuthErrorCode;
 import com.olehprukhnytskyi.exception.error.BaseErrorCode;
@@ -28,6 +33,7 @@ import com.olehprukhnytskyi.util.ActivityLevel;
 import com.olehprukhnytskyi.util.AuthProvider;
 import com.olehprukhnytskyi.util.Gender;
 import com.olehprukhnytskyi.util.Goal;
+import java.security.KeyPair;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -53,6 +59,14 @@ class AuthControllerTest {
     private SocialTokenVerificationService tokenVerificationService;
     @MockitoBean
     private GoalClient goalClient;
+    @MockitoBean
+    private RSAKey rsaKey;
+    @MockitoBean
+    private JWKSet jwkSet;
+    @MockitoBean
+    private KeyPair keyPair;
+    @MockitoBean
+    private RSASSASigner rsassaSigner;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -94,10 +108,14 @@ class AuthControllerTest {
         String jsonRequest = objectMapper.writeValueAsString(requestDto);
 
         AuthResponseDto responseDto = AuthResponseDto.builder()
-                .token("jwt_token")
+                .accessToken("jwt_access_token")
+                .refreshToken("jwt_refresh_token")
                 .build();
 
-        given(jwtUtil.generateToken(any())).willReturn("jwt_token");
+        when(jwtUtil.generateAccessToken(anyLong(), anyString()))
+                .thenReturn("jwt_access_token");
+        when(jwtUtil.generateRefreshToken(anyLong(), anyString()))
+                .thenReturn("jwt_refresh_token");
 
         // When
         MvcResult mvcResult = mockMvc.perform(
@@ -190,10 +208,14 @@ class AuthControllerTest {
 
         String jsonRequest = objectMapper.writeValueAsString(requestDto);
         AuthResponseDto responseDto = AuthResponseDto.builder()
-                .token("jwt_token")
+                .accessToken("jwt_access_token")
+                .refreshToken("jwt_refresh_token")
                 .build();
 
-        given(jwtUtil.generateToken(any())).willReturn("jwt_token");
+        given(jwtUtil.generateAccessToken(anyLong(), anyString()))
+                .willReturn("jwt_access_token");
+        given(jwtUtil.generateRefreshToken(anyLong(), anyString()))
+                .willReturn("jwt_refresh_token");
         when(goalClient.calculateGoal(any())).thenReturn(new GoalResponseDto());
 
         // When
@@ -227,10 +249,14 @@ class AuthControllerTest {
 
         String requestJson = objectMapper.writeValueAsString(requestDto);
         AuthResponseDto responseDto = AuthResponseDto.builder()
-                .token("jwt_token")
+                .accessToken("jwt_access_token")
+                .refreshToken("jwt_refresh_token")
                 .build();
 
-        given(jwtUtil.generateToken(any())).willReturn("jwt_token");
+        given(jwtUtil.generateAccessToken(anyLong(), anyString()))
+                .willReturn("jwt_access_token");
+        given(jwtUtil.generateRefreshToken(anyLong(), anyString()))
+                .willReturn("jwt_refresh_token");
         given(tokenVerificationService.verifyToken(any(), any()))
                 .willReturn(new SocialUserDetails("test@example.com"));
 
@@ -261,10 +287,14 @@ class AuthControllerTest {
 
         String requestJson = objectMapper.writeValueAsString(requestDto);
         AuthResponseDto responseDto = AuthResponseDto.builder()
-                .token("jwt_token")
+                .accessToken("jwt_access_token")
+                .refreshToken("jwt_refresh_token")
                 .build();
 
-        given(jwtUtil.generateToken(any())).willReturn("jwt_token");
+        given(jwtUtil.generateAccessToken(anyLong(), anyString()))
+                .willReturn("jwt_access_token");
+        given(jwtUtil.generateRefreshToken(anyLong(), anyString()))
+                .willReturn("jwt_refresh_token");
         given(tokenVerificationService.verifyToken(any(), any()))
                 .willReturn(new SocialUserDetails("test@example.com"));
         when(goalClient.calculateGoal(any())).thenReturn(new GoalResponseDto());
