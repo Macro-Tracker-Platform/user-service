@@ -26,7 +26,7 @@ import com.olehprukhnytskyi.macrotrackeruserservice.dto.RegisterRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.SocialTokenRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.SocialUserDetails;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.UserDetailsRequestDto;
-import com.olehprukhnytskyi.macrotrackeruserservice.repository.UserRepository;
+import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.UserRepository;
 import com.olehprukhnytskyi.macrotrackeruserservice.service.SocialTokenVerificationService;
 import com.olehprukhnytskyi.macrotrackeruserservice.util.JwtUtil;
 import com.olehprukhnytskyi.util.ActivityLevel;

@@ -1,8 +1,8 @@
 package com.olehprukhnytskyi.macrotrackeruserservice.service;
 
-import com.olehprukhnytskyi.macrotrackeruserservice.model.OutboxEvent;
-import com.olehprukhnytskyi.macrotrackeruserservice.repository.OutboxRepository;
-import com.olehprukhnytskyi.macrotrackeruserservice.repository.UserRepository;
+import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.UserRepository;
+import com.olehprukhnytskyi.model.OutboxEvent;
+import com.olehprukhnytskyi.repository.jpa.OutboxRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

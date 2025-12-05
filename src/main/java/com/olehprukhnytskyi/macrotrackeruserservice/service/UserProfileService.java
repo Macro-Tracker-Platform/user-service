@@ -11,7 +11,7 @@ import com.olehprukhnytskyi.macrotrackeruserservice.mapper.UserProfileMapper;
 import com.olehprukhnytskyi.macrotrackeruserservice.model.UserProfile;
 import com.olehprukhnytskyi.macrotrackeruserservice.projection.UserDetailsProjection;
 import com.olehprukhnytskyi.macrotrackeruserservice.projection.UserGoalProjection;
-import com.olehprukhnytskyi.macrotrackeruserservice.repository.UserProfileRepository;
+import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.UserProfileRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;

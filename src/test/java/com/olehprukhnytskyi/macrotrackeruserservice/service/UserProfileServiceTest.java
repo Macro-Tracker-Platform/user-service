@@ -21,7 +21,7 @@ import com.olehprukhnytskyi.macrotrackeruserservice.mapper.UserProfileMapper;
 import com.olehprukhnytskyi.macrotrackeruserservice.model.UserProfile;
 import com.olehprukhnytskyi.macrotrackeruserservice.projection.UserDetailsProjection;
 import com.olehprukhnytskyi.macrotrackeruserservice.projection.UserGoalProjection;
-import com.olehprukhnytskyi.macrotrackeruserservice.repository.UserProfileRepository;
+import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.UserProfileRepository;
 import com.olehprukhnytskyi.util.ActivityLevel;
 import com.olehprukhnytskyi.util.Gender;
 import com.olehprukhnytskyi.util.Goal;

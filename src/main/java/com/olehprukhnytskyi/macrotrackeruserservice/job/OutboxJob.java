@@ -1,8 +1,8 @@
 package com.olehprukhnytskyi.macrotrackeruserservice.job;
 
-import com.olehprukhnytskyi.macrotrackeruserservice.model.OutboxEvent;
 import com.olehprukhnytskyi.macrotrackeruserservice.producer.UserEventProducer;
-import com.olehprukhnytskyi.macrotrackeruserservice.repository.OutboxRepository;
+import com.olehprukhnytskyi.model.OutboxEvent;
+import com.olehprukhnytskyi.repository.jpa.OutboxRepository;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;

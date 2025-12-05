@@ -20,7 +20,7 @@ import com.olehprukhnytskyi.macrotrackeruserservice.exception.AuthenticationExce
 import com.olehprukhnytskyi.macrotrackeruserservice.mapper.UserMapper;
 import com.olehprukhnytskyi.macrotrackeruserservice.mapper.UserProfileMapper;
 import com.olehprukhnytskyi.macrotrackeruserservice.model.User;
-import com.olehprukhnytskyi.macrotrackeruserservice.repository.UserRepository;
+import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.UserRepository;
 import com.olehprukhnytskyi.macrotrackeruserservice.util.JwtUtil;
 import com.olehprukhnytskyi.util.AuthProvider;
 import java.util.Optional;

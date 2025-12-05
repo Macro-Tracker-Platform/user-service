@@ -1,4 +1,4 @@
-package com.olehprukhnytskyi.macrotrackeruserservice.repository;
+package com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa;
 
 import com.olehprukhnytskyi.macrotrackeruserservice.model.UserProfile;
 import com.olehprukhnytskyi.macrotrackeruserservice.projection.UserDetailsProjection;
