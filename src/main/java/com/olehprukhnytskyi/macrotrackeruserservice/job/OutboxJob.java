@@ -1,5 +1,8 @@
 package com.olehprukhnytskyi.macrotrackeruserservice.job;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.olehprukhnytskyi.event.RegistrationEvent;
+import com.olehprukhnytskyi.event.UserDeletedEvent;
 import com.olehprukhnytskyi.macrotrackeruserservice.producer.UserEventProducer;
 import com.olehprukhnytskyi.model.OutboxEvent;
 import com.olehprukhnytskyi.repository.jpa.OutboxRepository;
@@ -18,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class OutboxJob {
     private final OutboxRepository outboxRepository;
     private final UserEventProducer userEventProducer;
+    private final ObjectMapper objectMapper;
 
     @Scheduled(fixedDelay = 5000)
     @Transactional
@@ -32,7 +36,7 @@ public class OutboxJob {
         for (OutboxEvent event : events) {
             try {
                 Long userId = Long.parseLong(event.getAggregateId());
-                userEventProducer.sendUserDeletedEvent(userId);
+                userEventProducer.sendUserDeletedEvent(new UserDeletedEvent(userId));
 
                 event.setProcessed(true);
                 event.setProcessedAt(Instant.now());
@@ -59,7 +63,9 @@ public class OutboxJob {
         for (OutboxEvent event : events) {
             try {
                 String payload = event.getPayload();
-                userEventProducer.sendUserRegisteredEvent(payload);
+                RegistrationEvent registrationEvent = objectMapper
+                        .readValue(payload, RegistrationEvent.class);
+                userEventProducer.sendUserRegisteredEvent(registrationEvent);
 
                 event.setProcessed(true);
                 event.setProcessedAt(Instant.now());
