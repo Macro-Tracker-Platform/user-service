@@ -9,6 +9,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.olehprukhnytskyi.macrotrackeruserservice.client.GoalClient;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.AuthResponseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.GoalResponseDto;
@@ -22,6 +24,7 @@ import com.olehprukhnytskyi.macrotrackeruserservice.mapper.UserProfileMapper;
 import com.olehprukhnytskyi.macrotrackeruserservice.model.User;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.UserRepository;
 import com.olehprukhnytskyi.macrotrackeruserservice.util.JwtUtil;
+import com.olehprukhnytskyi.repository.jpa.OutboxRepository;
 import com.olehprukhnytskyi.util.AuthProvider;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
@@ -49,6 +52,10 @@ class AuthServiceTest {
     private UserProfileMapper userProfileMapper;
     @Mock
     private PasswordEncoder passwordEncoder;
+    @Mock
+    private ObjectMapper objectMappere;
+    @Mock
+    private OutboxRepository outboxRepository;
 
     @InjectMocks
     private AuthService authService;
@@ -157,6 +164,7 @@ class AuthServiceTest {
         registerRequestDto.setConfirmPassword("password");
 
         User userFromDb = new User();
+        userFromDb.setId(1L);
         userFromDb.setEmail("test@example.com");
         userFromDb.setPassword("encoded_string");
 
@@ -183,7 +191,8 @@ class AuthServiceTest {
     @DisplayName("Given a valid token and provider,"
             + " if the user does not exist,"
             + " should save the user and return a JWT token")
-    void authenticateWithSocial_whenUserDoesNotExist_shouldReturnJwtToken() {
+    void authenticateWithSocial_whenUserDoesNotExist_shouldReturnJwtToken()
+            throws JsonProcessingException {
         // Given
         User user = new User();
         user.setId(1L);
@@ -202,6 +211,7 @@ class AuthServiceTest {
                 .thenReturn("jwt_access_token");
         when(jwtUtil.generateRefreshToken(anyLong(), anyString()))
                 .thenReturn("jwt_refresh_token");
+        when(objectMappere.writeValueAsString(any())).thenReturn("json");
 
         // When
         AuthResponseDto authResponse = authService.authenticateWithSocial(tokenRequestDto);

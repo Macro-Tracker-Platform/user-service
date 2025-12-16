@@ -34,6 +34,12 @@ public class User {
     @Enumerated(EnumType.STRING)
     private AuthProvider authProvider = AuthProvider.LOCAL;
 
+    @Column(nullable = false)
+    private boolean emailConfirmed = false;
+
+    @Column(length = 255)
+    private String confirmationToken;
+
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL)
     private UserProfile profile;
 }

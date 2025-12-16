@@ -1,7 +1,13 @@
 package com.olehprukhnytskyi.macrotrackeruserservice.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nimbusds.jwt.SignedJWT;
+import com.olehprukhnytskyi.event.RegistrationEvent;
+import com.olehprukhnytskyi.exception.BadRequestException;
+import com.olehprukhnytskyi.exception.InternalServerException;
 import com.olehprukhnytskyi.exception.error.AuthErrorCode;
+import com.olehprukhnytskyi.exception.error.CommonErrorCode;
 import com.olehprukhnytskyi.macrotrackeruserservice.client.GoalClient;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.AuthResponseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.GoalResponseDto;
@@ -17,9 +23,12 @@ import com.olehprukhnytskyi.macrotrackeruserservice.model.User;
 import com.olehprukhnytskyi.macrotrackeruserservice.model.UserProfile;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.UserRepository;
 import com.olehprukhnytskyi.macrotrackeruserservice.util.JwtUtil;
+import com.olehprukhnytskyi.model.OutboxEvent;
+import com.olehprukhnytskyi.repository.jpa.OutboxRepository;
 import jakarta.transaction.Transactional;
 import java.text.ParseException;
 import java.util.Optional;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -31,11 +40,13 @@ import org.springframework.stereotype.Service;
 public class AuthService {
     private final SocialTokenVerificationService tokenVerificationService;
     private final UserProfileMapper userProfileMapper;
-    private final UserRepository userRepository;
+    private final OutboxRepository outboxRepository;
     private final PasswordEncoder passwordEncoder;
+    private final UserRepository userRepository;
     private final UserMapper userMapper;
     private final GoalClient goalClient;
     private final JwtUtil jwtUtil;
+    private final ObjectMapper objectMapper;
 
     public AuthResponseDto login(LoginRequestDto dto) {
         User user = userRepository.findByEmail(dto.getEmail())
@@ -86,6 +97,32 @@ public class AuthService {
         return registerNewUser(user, tokenDto.getUserDetails());
     }
 
+    public void confirmEmail(String token) {
+        User user = userRepository.findByConfirmationToken(token)
+                .orElseThrow(() -> new InternalServerException(
+                        AuthErrorCode.TOKEN_VERIFICATION_FAILED,
+                        "Invalid token for email verification")
+                );
+        user.setEmailConfirmed(true);
+        user.setConfirmationToken(null);
+        userRepository.save(user);
+    }
+
+    @Transactional
+    public void resendConfirmation(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new AuthenticationException(AuthErrorCode
+                        .INVALID_CREDENTIALS, "User not found"));
+        if (user.isEmailConfirmed()) {
+            throw new BadRequestException(CommonErrorCode.BAD_REQUEST,
+                    "Account is already confirmed");
+        }
+        String newToken = UUID.randomUUID().toString();
+        user.setConfirmationToken(newToken);
+        userRepository.save(user);
+        outboxRepository.save(generateUserRegisteredOutboxEvent(user, newToken));
+    }
+
     private AuthResponseDto generateAuthResponse(Long userId, String userEmail) {
         String access = jwtUtil.generateAccessToken(userId, userEmail);
         String refresh = jwtUtil.generateRefreshToken(userId, userEmail);
@@ -97,13 +134,33 @@ public class AuthService {
 
     private AuthResponseDto registerNewUser(User user, UserDetailsRequestDto userDetails) {
         UserProfile profile = userMapper.toUserProfile(userDetails, user);
-
         GoalResponseDto goalResponseDto = goalClient.calculateGoal(userDetails);
         userProfileMapper.updateUserProfileFromDto(goalResponseDto, profile);
-
         user.setProfile(profile);
-
         User savedUser = userRepository.save(user);
+
+        user.setEmailConfirmed(false);
+        String token = UUID.randomUUID().toString();
+        user.setConfirmationToken(token);
+        outboxRepository.save(generateUserRegisteredOutboxEvent(savedUser, token));
         return generateAuthResponse(savedUser.getId(), savedUser.getEmail());
+    }
+
+    private OutboxEvent generateUserRegisteredOutboxEvent(User user, String token) {
+        try {
+            RegistrationEvent event = RegistrationEvent.builder()
+                    .email(user.getEmail())
+                    .confirmationToken(token)
+                    .build();
+            return OutboxEvent.builder()
+                    .aggregateType("USER")
+                    .aggregateId(user.getId().toString())
+                    .eventType("USER_REGISTERED")
+                    .payload(objectMapper.writeValueAsString(event))
+                    .build();
+        } catch (JsonProcessingException e) {
+            throw new InternalServerException(CommonErrorCode.INTERNAL_ERROR,
+                    "We couldn’t complete your registration. Please try again later", e);
+        }
     }
 }

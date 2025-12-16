@@ -28,4 +28,13 @@ public class UserEventProducer {
                     "Cannot send Kafka event", e);
         }
     }
+
+    public void sendUserRegisteredEvent(String payload) {
+        try {
+            kafkaTemplate.send("user-registered", payload).get();
+        } catch (Exception e) {
+            throw new EventProcessingException(EventErrorCode.KAFKA_SEND_FAILED,
+                    "Cannot send Kafka event", e);
+        }
+    }
 }

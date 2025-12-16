@@ -1,0 +1,23 @@
+databaseChangeLog:
+  - changeSet:
+      id: 1765854491956-1
+      author: oleh.prukhnytskyi
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addColumn:
+            columns:
+              - column:
+                  name: confirmation_token
+                  type: VARCHAR(255)
+              - column:
+                  name: email_confirmed
+                  type: BOOLEAN
+            tableName: users
+  - changeSet:
+      id: 1765854491956-3
+      author: oleh.prukhnytskyi
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addNotNullConstraint:
+            columnName: email_confirmed
+            tableName: users

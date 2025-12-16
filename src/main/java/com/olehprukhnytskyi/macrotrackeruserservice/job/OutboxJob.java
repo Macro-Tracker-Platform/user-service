@@ -45,4 +45,31 @@ public class OutboxJob {
             outboxRepository.saveAll(processedEvents);
         }
     }
+
+    @Scheduled(fixedDelay = 5000)
+    @Transactional
+    public void processUserRegisteredEvents() {
+        List<OutboxEvent> events = outboxRepository
+                .findTop100ByProcessedFalseAndEventTypeOrderByCreatedAtAsc("USER_REGISTERED");
+        if (events.isEmpty()) {
+            return;
+        }
+
+        List<OutboxEvent> processedEvents = new ArrayList<>();
+        for (OutboxEvent event : events) {
+            try {
+                String payload = event.getPayload();
+                userEventProducer.sendUserRegisteredEvent(payload);
+
+                event.setProcessed(true);
+                event.setProcessedAt(Instant.now());
+                processedEvents.add(event);
+            } catch (Exception e) {
+                log.error("Failed to process outbox event {}: {}", event.getId(), e.getMessage());
+            }
+        }
+        if (!processedEvents.isEmpty()) {
+            outboxRepository.saveAll(processedEvents);
+        }
+    }
 }
