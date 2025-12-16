@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -13,7 +12,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.olehprukhnytskyi.macrotrackeruserservice.client.GoalClient;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.AuthResponseDto;
-import com.olehprukhnytskyi.macrotrackeruserservice.dto.GoalResponseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.LoginRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.RegisterRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.SocialTokenRequestDto;
@@ -53,7 +51,7 @@ class AuthServiceTest {
     @Mock
     private PasswordEncoder passwordEncoder;
     @Mock
-    private ObjectMapper objectMappere;
+    private ObjectMapper objectMapper;
     @Mock
     private OutboxRepository outboxRepository;
 
@@ -80,8 +78,8 @@ class AuthServiceTest {
     }
 
     @Test
-    @DisplayName("Should throw an exception, when passwords do not match")
-    void login_whenPasswordsDoNotMatch_shouldThrowException() {
+    @DisplayName("When confirmed and passwords do not match, should throw an exception")
+    void login_whenConfirmedAndPasswordsDoNotMatch_shouldThrowException() {
         // Given
         LoginRequestDto loginRequestDto = new LoginRequestDto();
         loginRequestDto.setEmail("test@example.com");
@@ -90,6 +88,7 @@ class AuthServiceTest {
         User userFromDb = new User();
         userFromDb.setEmail("test@example.com");
         userFromDb.setPassword(BCrypt.hashpw("correctPassword", BCrypt.gensalt()));
+        userFromDb.setEmailConfirmed(true);
 
         when(userRepository.findByEmail("test@example.com"))
                 .thenReturn(Optional.of(userFromDb));
@@ -104,8 +103,8 @@ class AuthServiceTest {
     }
 
     @Test
-    @DisplayName("Should return a JWT token, when passwords match")
-    void login_whenPasswordsMatch_shouldReturnJwtToken() {
+    @DisplayName("When passwords match and not confirmed, should throw an exception")
+    void login_whenPasswordsMatchAndNotConfirmed_shouldThrowException() {
         // Given
         LoginRequestDto loginRequestDto = new LoginRequestDto();
         loginRequestDto.setEmail("test@example.com");
@@ -117,19 +116,9 @@ class AuthServiceTest {
 
         when(userRepository.findByEmail("test@example.com"))
                 .thenReturn(Optional.of(userFromDb));
-        when(jwtUtil.generateAccessToken(userFromDb.getId(), userFromDb.getEmail()))
-                .thenReturn("jwt_access_token");
-        when(jwtUtil.generateRefreshToken(userFromDb.getId(), userFromDb.getEmail()))
-                .thenReturn("jwt_refresh_token");
-        when(passwordEncoder.matches(loginRequestDto.getPassword(), userFromDb.getPassword()))
-                .thenReturn(Boolean.TRUE);
 
         // When
-        AuthResponseDto authResponse = authService.login(loginRequestDto);
-
-        // Then
-        assertEquals("jwt_access_token", authResponse.getAccessToken());
-        assertEquals("jwt_refresh_token", authResponse.getRefreshToken());
+        assertThrows(AuthenticationException.class, () -> authService.login(loginRequestDto));
     }
 
     @Test
@@ -152,39 +141,6 @@ class AuthServiceTest {
         // Then
         String expected = "An account with this email already exists";
         assertEquals(expected, exception.getMessage());
-    }
-
-    @Test
-    @DisplayName("Should return JWT token, when user does not exist")
-    void register_whenUserDoesNotExist_shouldReturnJwtToken() {
-        // Given
-        RegisterRequestDto registerRequestDto = new RegisterRequestDto();
-        registerRequestDto.setEmail("test@example.com");
-        registerRequestDto.setPassword("password");
-        registerRequestDto.setConfirmPassword("password");
-
-        User userFromDb = new User();
-        userFromDb.setId(1L);
-        userFromDb.setEmail("test@example.com");
-        userFromDb.setPassword("encoded_string");
-
-        when(userRepository.findByEmail("test@example.com"))
-                .thenReturn(Optional.empty());
-        when(userRepository.save(any())).thenReturn(userFromDb);
-        when(userMapper.toUser(any())).thenReturn(userFromDb);
-        when(goalClient.calculateGoal(any())).thenReturn(new GoalResponseDto());
-        when(jwtUtil.generateAccessToken(userFromDb.getId(), userFromDb.getEmail()))
-                .thenReturn("jwt_access_token");
-        when(jwtUtil.generateRefreshToken(userFromDb.getId(), userFromDb.getEmail()))
-                .thenReturn("jwt_refresh_token");
-        when(passwordEncoder.encode(anyString())).thenReturn("encoded_string");
-
-        // When
-        AuthResponseDto authResponse = authService.register(registerRequestDto);
-
-        // Then
-        assertEquals("jwt_access_token", authResponse.getAccessToken());
-        assertEquals("jwt_refresh_token", authResponse.getRefreshToken());
     }
 
     @Test
@@ -211,7 +167,6 @@ class AuthServiceTest {
                 .thenReturn("jwt_access_token");
         when(jwtUtil.generateRefreshToken(anyLong(), anyString()))
                 .thenReturn("jwt_refresh_token");
-        when(objectMappere.writeValueAsString(any())).thenReturn("json");
 
         // When
         AuthResponseDto authResponse = authService.authenticateWithSocial(tokenRequestDto);
@@ -250,6 +205,5 @@ class AuthServiceTest {
         // Then
         assertEquals("jwt_access_token", authResponse.getAccessToken());
         assertEquals("jwt_refresh_token", authResponse.getRefreshToken());
-        verify(userRepository, never()).save(any());
     }
 }

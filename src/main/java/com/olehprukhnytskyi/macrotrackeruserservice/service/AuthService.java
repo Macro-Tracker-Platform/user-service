@@ -15,7 +15,6 @@ import com.olehprukhnytskyi.macrotrackeruserservice.dto.LoginRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.RegisterRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.SocialTokenRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.SocialUserDetails;
-import com.olehprukhnytskyi.macrotrackeruserservice.dto.UserDetailsRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.exception.AuthenticationException;
 import com.olehprukhnytskyi.macrotrackeruserservice.mapper.UserMapper;
 import com.olehprukhnytskyi.macrotrackeruserservice.mapper.UserProfileMapper;
@@ -52,6 +51,10 @@ public class AuthService {
         User user = userRepository.findByEmail(dto.getEmail())
                 .orElseThrow(() -> new AuthenticationException(AuthErrorCode
                         .INVALID_CREDENTIALS, "Invalid email or password"));
+        if (!user.isEmailConfirmed()) {
+            throw new AuthenticationException(AuthErrorCode.EMAIL_NOT_CONFIRMED,
+                    "Please confirm your email before logging in");
+        }
         if (!passwordEncoder.matches(dto.getPassword(), user.getPassword())) {
             throw new AuthenticationException(AuthErrorCode.INVALID_CREDENTIALS,
                     "Invalid email or password");
@@ -72,7 +75,7 @@ public class AuthService {
     }
 
     @Transactional
-    public AuthResponseDto register(RegisterRequestDto registerDto) {
+    public void register(RegisterRequestDto registerDto) {
         if (userRepository.findByEmail(registerDto.getEmail()).isPresent()) {
             log.warn("Registration failed: email already exists");
             throw new AuthenticationException(AuthErrorCode.EMAIL_ALREADY_EXISTS,
@@ -80,7 +83,18 @@ public class AuthService {
         }
         User user = userMapper.toUser(registerDto);
         user.setPassword(passwordEncoder.encode(registerDto.getPassword()));
-        return registerNewUser(user, registerDto.getUserDetails());
+
+        UserProfile profile = userMapper.toUserProfile(registerDto.getUserDetails(), user);
+        GoalResponseDto goalResponseDto = goalClient.calculateGoal(registerDto.getUserDetails());
+        userProfileMapper.updateUserProfileFromDto(goalResponseDto, profile);
+        user.setProfile(profile);
+        User savedUser = userRepository.save(user);
+
+        String token = UUID.randomUUID().toString();
+        savedUser.setEmailConfirmed(false);
+        savedUser.setConfirmationToken(token);
+
+        outboxRepository.save(generateUserRegisteredOutboxEvent(savedUser, token));
     }
 
     @Transactional
@@ -89,23 +103,43 @@ public class AuthService {
                 tokenDto.getToken(), tokenDto.getProvider());
         Optional<User> userFromDb = userRepository.findByEmail(userDetails.getEmail());
         if (userFromDb.isPresent()) {
-            return generateAuthResponse(userFromDb.get().getId(), userFromDb.get().getEmail());
+            User user = userFromDb.get();
+            if (!user.isEmailConfirmed()) {
+                user.setEmailConfirmed(true);
+                user.setConfirmationToken(null);
+                userRepository.save(user);
+            }
+            return generateAuthResponse(user.getId(), user.getEmail());
         }
         User user = new User();
         user.setEmail(userDetails.getEmail());
         user.setAuthProvider(tokenDto.getProvider());
-        return registerNewUser(user, tokenDto.getUserDetails());
+        user.setEmailConfirmed(true);
+        user.setConfirmationToken(null);
+
+        UserProfile profile = userMapper.toUserProfile(tokenDto.getUserDetails(), user);
+        GoalResponseDto goalResponseDto = goalClient.calculateGoal(tokenDto.getUserDetails());
+        userProfileMapper.updateUserProfileFromDto(goalResponseDto, profile);
+        user.setProfile(profile);
+
+        User savedUser = userRepository.save(user);
+        return generateAuthResponse(savedUser.getId(), savedUser.getEmail());
     }
 
-    public void confirmEmail(String token) {
+    public AuthResponseDto confirmEmail(String token) {
         User user = userRepository.findByConfirmationToken(token)
                 .orElseThrow(() -> new InternalServerException(
                         AuthErrorCode.TOKEN_VERIFICATION_FAILED,
                         "Invalid token for email verification")
                 );
+        if (user.isEmailConfirmed()) {
+            throw new BadRequestException(CommonErrorCode.BAD_REQUEST,
+                    "Email already confirmed");
+        }
         user.setEmailConfirmed(true);
         user.setConfirmationToken(null);
         userRepository.save(user);
+        return generateAuthResponse(user.getId(), user.getEmail());
     }
 
     @Transactional
@@ -130,20 +164,6 @@ public class AuthService {
                 .accessToken(access)
                 .refreshToken(refresh)
                 .build();
-    }
-
-    private AuthResponseDto registerNewUser(User user, UserDetailsRequestDto userDetails) {
-        UserProfile profile = userMapper.toUserProfile(userDetails, user);
-        GoalResponseDto goalResponseDto = goalClient.calculateGoal(userDetails);
-        userProfileMapper.updateUserProfileFromDto(goalResponseDto, profile);
-        user.setProfile(profile);
-        User savedUser = userRepository.save(user);
-
-        user.setEmailConfirmed(false);
-        String token = UUID.randomUUID().toString();
-        user.setConfirmationToken(token);
-        outboxRepository.save(generateUserRegisteredOutboxEvent(savedUser, token));
-        return generateAuthResponse(savedUser.getId(), savedUser.getEmail());
     }
 
     private OutboxEvent generateUserRegisteredOutboxEvent(User user, String token) {

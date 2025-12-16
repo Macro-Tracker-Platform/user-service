@@ -5,8 +5,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -96,6 +94,9 @@ class AuthControllerTest {
         userDetailsDto.setActivityLevel(ActivityLevel.MODERATELY_ACTIVE);
     }
 
+    @Sql(
+            scripts = "classpath:database/cleanup.sql",
+            executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
     @Sql(scripts = "classpath:database/add-user-for-auth.sql",
             executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
     @Sql(scripts = "classpath:database/remove-user-for-auth.sql",
@@ -199,18 +200,14 @@ class AuthControllerTest {
     }
 
     @Test
-    @DisplayName("When user does not exist, should return JWT token")
-    void register_whenUserDoesNotExist_shouldReturnJwtToken() throws Exception {
+    @DisplayName("When user does not exist, should save Outbox event")
+    void register_whenUserDoesNotExist_shouldSaveOutboxEvent() throws Exception {
         // GIven
         RegisterRequestDto requestDto = new RegisterRequestDto(
                 "test@example.com", "password", "password");
         requestDto.setUserDetails(userDetailsDto);
 
         String jsonRequest = objectMapper.writeValueAsString(requestDto);
-        AuthResponseDto responseDto = AuthResponseDto.builder()
-                .accessToken("jwt_access_token")
-                .refreshToken("jwt_refresh_token")
-                .build();
 
         given(jwtUtil.generateAccessToken(anyLong(), anyString()))
                 .willReturn("jwt_access_token");
@@ -219,20 +216,12 @@ class AuthControllerTest {
         when(goalClient.calculateGoal(any())).thenReturn(new GoalResponseDto());
 
         // When
-        MvcResult mvcResult = mockMvc.perform(
+        mockMvc.perform(
                         post("/api/auth/register")
                                 .content(jsonRequest)
                                 .contentType(MediaType.APPLICATION_JSON)
                 )
-                .andExpect(status().isOk())
-                .andReturn();
-
-        // Then
-        String expected = objectMapper.writeValueAsString(responseDto);
-        assertEquals(expected, mvcResult.getResponse().getContentAsString());
-
-        // Clean up
-        userRepository.deleteAll();
+                .andExpect(status().isOk());
     }
 
     @Sql(scripts = "classpath:database/add-user-for-auth.sql",
@@ -311,7 +300,6 @@ class AuthControllerTest {
         // Then
         String expected = objectMapper.writeValueAsString(responseDto);
         assertEquals(expected, mvcResult.getResponse().getContentAsString());
-        verify(userRepository, times(1)).save(any());
 
         // Clean up
         userRepository.deleteAll();

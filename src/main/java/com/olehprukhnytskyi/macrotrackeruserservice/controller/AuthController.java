@@ -60,12 +60,12 @@ public class AuthController {
             description = "Create new user account with profile details"
     )
     @PostMapping("/register")
-    public ResponseEntity<AuthResponseDto> register(
+    public ResponseEntity<Void> register(
             @RequestBody @Valid RegisterRequestDto requestDto) {
         log.info("Registration request received");
-        AuthResponseDto tokens = authService.register(requestDto);
+        authService.register(requestDto);
         log.info("Registration successful");
-        return ResponseEntity.ok(tokens);
+        return ResponseEntity.ok().build();
     }
 
     @Operation(
@@ -87,9 +87,11 @@ public class AuthController {
                     + " a confirmation token sent by email during registration"
     )
     @GetMapping("/confirm")
-    public ResponseEntity<String> confirm(@RequestParam String token) {
-        authService.confirmEmail(token);
-        return ResponseEntity.ok("Email confirmed");
+    public ResponseEntity<AuthResponseDto> confirm(@RequestParam String token) {
+        log.info("Confirm email request received");
+        AuthResponseDto response = authService.confirmEmail(token);
+        log.info("Confirm email successful");
+        return ResponseEntity.ok(response);
     }
 
     @Operation(
@@ -99,7 +101,9 @@ public class AuthController {
     )
     @PostMapping("/resend")
     public ResponseEntity<String> resend(@RequestParam String email) {
+        log.info("Resend email confirmation request received");
         authService.resendConfirmation(email);
+        log.info("Resend email confirmation successful");
         return ResponseEntity.ok("Confirmation email resent");
     }
 }
