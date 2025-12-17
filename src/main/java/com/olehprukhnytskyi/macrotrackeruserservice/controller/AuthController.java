@@ -1,9 +1,11 @@
 package com.olehprukhnytskyi.macrotrackeruserservice.controller;
 
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.AuthResponseDto;
+import com.olehprukhnytskyi.macrotrackeruserservice.dto.ForgotPasswordRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.LoginRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.RefreshRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.RegisterRequestDto;
+import com.olehprukhnytskyi.macrotrackeruserservice.dto.ResetPasswordRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.SocialTokenRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -84,26 +86,52 @@ public class AuthController {
     @Operation(
             summary = "Confirm email address",
             description = "Confirms the user's email address using"
-                    + " a confirmation token sent by email during registration"
+                    + " a confirmation code sent by email during registration"
     )
     @GetMapping("/confirm")
-    public ResponseEntity<AuthResponseDto> confirm(@RequestParam String token) {
+    public ResponseEntity<AuthResponseDto> confirm(@RequestParam String code) {
         log.info("Confirm email request received");
-        AuthResponseDto response = authService.confirmEmail(token);
+        AuthResponseDto response = authService.confirmEmail(code);
         log.info("Confirm email successful");
         return ResponseEntity.ok(response);
     }
 
     @Operation(
             summary = "Resend email confirmation",
-            description = "Generates a new email confirmation token and sends it to"
+            description = "Generates a new email confirmation code and sends it to"
                     + " the user's email address if the account is not yet confirmed"
     )
     @PostMapping("/resend")
-    public ResponseEntity<String> resend(@RequestParam String email) {
+    public ResponseEntity<Void> resend(@RequestParam String email) {
         log.info("Resend email confirmation request received");
         authService.resendConfirmation(email);
         log.info("Resend email confirmation successful");
-        return ResponseEntity.ok("Confirmation email resent");
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(
+            summary = "Forgot password",
+            description = "Initiates the password reset process by sending"
+                    + " a password reset code to the user's email address"
+    )
+    @PostMapping("/forgot-password")
+    public ResponseEntity<Void> forgotPassword(@RequestBody ForgotPasswordRequestDto dto) {
+        log.info("Forgot password request received");
+        authService.initiatePasswordReset(dto.getEmail());
+        log.info("Forgot password successful");
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(
+            summary = "Reset password",
+            description = "Resets the user's password using a valid reset code"
+                    + " and sets a new password"
+    )
+    @PostMapping("/reset-password")
+    public ResponseEntity<Void> resetPassword(@RequestBody ResetPasswordRequestDto dto) {
+        log.info("Reset password request received");
+        authService.resetPassword(dto.getCode(), dto.getNewPassword());
+        log.info("Reset password successful");
+        return ResponseEntity.noContent().build();
     }
 }

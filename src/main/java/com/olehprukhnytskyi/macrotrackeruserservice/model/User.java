@@ -11,6 +11,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
+import java.time.LocalDateTime;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -37,8 +38,17 @@ public class User {
     @Column(nullable = false)
     private boolean emailConfirmed = false;
 
-    @Column(length = 255)
-    private String confirmationToken;
+    @Column
+    private String confirmationCode;
+
+    @Column
+    private LocalDateTime confirmationCodeExpiresAt;
+
+    @Column
+    private String resetPasswordCode;
+
+    @Column
+    private LocalDateTime resetPasswordCodeExpiresAt;
 
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL)
     private UserProfile profile;

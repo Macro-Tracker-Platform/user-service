@@ -1,6 +1,7 @@
 package com.olehprukhnytskyi.macrotrackeruserservice.job;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.olehprukhnytskyi.event.PasswordResetEvent;
 import com.olehprukhnytskyi.event.RegistrationEvent;
 import com.olehprukhnytskyi.event.UserDeletedEvent;
 import com.olehprukhnytskyi.macrotrackeruserservice.producer.UserEventProducer;
@@ -66,6 +67,36 @@ public class OutboxJob {
                 RegistrationEvent registrationEvent = objectMapper
                         .readValue(payload, RegistrationEvent.class);
                 userEventProducer.sendUserRegisteredEvent(registrationEvent);
+
+                event.setProcessed(true);
+                event.setProcessedAt(Instant.now());
+                processedEvents.add(event);
+            } catch (Exception e) {
+                log.error("Failed to process outbox event {}: {}", event.getId(), e.getMessage());
+            }
+        }
+        if (!processedEvents.isEmpty()) {
+            outboxRepository.saveAll(processedEvents);
+        }
+    }
+
+    @Scheduled(fixedDelay = 5000)
+    @Transactional
+    public void processPasswordResetEvents() {
+        List<OutboxEvent> events = outboxRepository
+                .findTop100ByProcessedFalseAndEventTypeOrderByCreatedAtAsc(
+                        "PASSWORD_RESET_REQUESTED");
+        if (events.isEmpty()) {
+            return;
+        }
+
+        List<OutboxEvent> processedEvents = new ArrayList<>();
+        for (OutboxEvent event : events) {
+            try {
+                String payload = event.getPayload();
+                PasswordResetEvent passwordResetEvent = objectMapper
+                        .readValue(payload, PasswordResetEvent.class);
+                userEventProducer.sendPasswordResetEvent(passwordResetEvent);
 
                 event.setProcessed(true);
                 event.setProcessedAt(Instant.now());

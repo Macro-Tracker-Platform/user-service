@@ -5,11 +5,13 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.olehprukhnytskyi.exception.error.AuthErrorCode;
 import com.olehprukhnytskyi.macrotrackeruserservice.client.GoalClient;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.AuthResponseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.LoginRequestDto;
@@ -122,25 +124,38 @@ class AuthServiceTest {
     }
 
     @Test
-    @DisplayName("Should throw an exception, when user exists")
-    void register_whenUserExists_shouldThrowException() {
+    @DisplayName("Should throw exception when user with confirmed email already exists")
+    void register_whenConfirmedUserExists_shouldThrowException() {
         // Given
         RegisterRequestDto registerRequestDto = new RegisterRequestDto();
         registerRequestDto.setEmail("test@example.com");
+        registerRequestDto.setPassword("password123");
 
         User userFromDb = new User();
         userFromDb.setEmail("test@example.com");
+        userFromDb.setEmailConfirmed(true);
 
         when(userRepository.findByEmail("test@example.com"))
                 .thenReturn(Optional.of(userFromDb));
 
         // When
-        AuthenticationException exception = assertThrows(AuthenticationException.class,
-                () -> authService.register(registerRequestDto));
+        AuthenticationException exception = assertThrows(
+                AuthenticationException.class,
+                () -> authService.register(registerRequestDto)
+        );
 
         // Then
-        String expected = "An account with this email already exists";
-        assertEquals(expected, exception.getMessage());
+        assertEquals(
+                "An account with this email already exists",
+                exception.getMessage()
+        );
+        assertEquals(
+                AuthErrorCode.EMAIL_ALREADY_EXISTS,
+                exception.getErrorCode()
+        );
+
+        verify(userRepository, never()).delete(any());
+        verify(userRepository, never()).save(any());
     }
 
     @Test

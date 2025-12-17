@@ -1,0 +1,29 @@
+databaseChangeLog:
+  - changeSet:
+      id: 1765933517397-1
+      author: oleh.prukhnytskyi
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addColumn:
+            columns:
+              - column:
+                  name: confirmation_code
+                  type: VARCHAR(255)
+              - column:
+                  name: confirmation_code_expires_at
+                  type: DATETIME
+              - column:
+                  name: reset_password_code
+                  type: VARCHAR(255)
+              - column:
+                  name: reset_password_code_expires_at
+                  type: DATETIME
+            tableName: users
+  - changeSet:
+      id: 1765933517397-4
+      author: oleh.prukhnytskyi
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addNotNullConstraint:
+            columnName: email_confirmed
+            tableName: users
