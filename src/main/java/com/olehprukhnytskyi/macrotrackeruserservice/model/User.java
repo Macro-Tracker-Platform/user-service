@@ -2,16 +2,22 @@ package com.olehprukhnytskyi.macrotrackeruserservice.model;
 
 import com.olehprukhnytskyi.util.AuthProvider;
 import jakarta.persistence.CascadeType;
+import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -32,8 +38,11 @@ public class User {
     @Column(length = 64)
     private String password;
 
+    @ElementCollection(targetClass = AuthProvider.class, fetch = FetchType.EAGER)
+    @CollectionTable(name = "user_providers", joinColumns = @JoinColumn(name = "user_id"))
+    @Column(name = "provider", nullable = false)
     @Enumerated(EnumType.STRING)
-    private AuthProvider authProvider = AuthProvider.LOCAL;
+    private Set<AuthProvider> authProviders = new HashSet<>();
 
     @Column(nullable = false)
     private boolean emailConfirmed = false;
@@ -52,4 +61,8 @@ public class User {
 
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL)
     private UserProfile profile;
+
+    public void addAuthProvider(AuthProvider provider) {
+        this.authProviders.add(provider);
+    }
 }

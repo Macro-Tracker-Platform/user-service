@@ -9,8 +9,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.olehprukhnytskyi.exception.BadRequestException;
 import com.olehprukhnytskyi.exception.error.AuthErrorCode;
 import com.olehprukhnytskyi.macrotrackeruserservice.client.GoalClient;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.AuthResponseDto;
@@ -161,35 +161,23 @@ class AuthServiceTest {
     @Test
     @DisplayName("Given a valid token and provider,"
             + " if the user does not exist,"
-            + " should save the user and return a JWT token")
-    void authenticateWithSocial_whenUserDoesNotExist_shouldReturnJwtToken()
-            throws JsonProcessingException {
+            + " should throw exception")
+    void authenticateWithSocial_whenUserDoesNotExist_shouldThrowException() {
         // Given
         User user = new User();
         user.setId(1L);
         user.setEmail("test@example.com");
-        user.setAuthProvider(AuthProvider.GOOGLE);
+        user.addAuthProvider(AuthProvider.GOOGLE);
 
         SocialUserDetails userPayload = new SocialUserDetails("test@example.com");
-        SocialTokenRequestDto tokenRequestDto = new SocialTokenRequestDto(
-                "test_token", AuthProvider.GOOGLE);
 
         when(tokenVerificationService.verifyToken("test_token", AuthProvider.GOOGLE))
                 .thenReturn(userPayload);
         when(userRepository.findByEmail(anyString())).thenReturn(Optional.empty());
-        when(userRepository.save(any(User.class))).thenReturn(user);
-        when(jwtUtil.generateAccessToken(anyLong(), anyString()))
-                .thenReturn("jwt_access_token");
-        when(jwtUtil.generateRefreshToken(anyLong(), anyString()))
-                .thenReturn("jwt_refresh_token");
 
         // When
-        AuthResponseDto authResponse = authService.authenticateWithSocial(tokenRequestDto);
-
-        // Then
-        assertEquals("jwt_access_token", authResponse.getAccessToken());
-        assertEquals("jwt_refresh_token", authResponse.getRefreshToken());
-        verify(userRepository).save(any(User.class));
+        assertThrows(BadRequestException.class, () -> authService.authenticateWithSocial(
+                new SocialTokenRequestDto("test_token", AuthProvider.GOOGLE)));
     }
 
     @Test
@@ -201,7 +189,7 @@ class AuthServiceTest {
         User user = new User();
         user.setId(1L);
         user.setEmail("test@example.com");
-        user.setAuthProvider(AuthProvider.GOOGLE);
+        user.addAuthProvider(AuthProvider.GOOGLE);
 
         SocialTokenRequestDto tokenRequestDto = new SocialTokenRequestDto(
                 "test_token", AuthProvider.GOOGLE);
@@ -209,6 +197,7 @@ class AuthServiceTest {
         when(tokenVerificationService.verifyToken(anyString(), any()))
                 .thenReturn(new SocialUserDetails("test@example.com"));
         when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(user));
+        when(userRepository.save(any())).thenReturn(user);
         when(jwtUtil.generateAccessToken(anyLong(), anyString()))
                 .thenReturn("jwt_access_token");
         when(jwtUtil.generateRefreshToken(anyLong(), anyString()))

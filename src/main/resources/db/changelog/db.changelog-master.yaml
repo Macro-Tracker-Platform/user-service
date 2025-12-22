@@ -5,3 +5,5 @@ databaseChangeLog:
       file: db/changelog/changes/01-add-email-confirmation-columns.yaml
   - include:
       file: db/changelog/changes/02-rename-token-to-code.yaml
+  - include:
+      file: db/changelog/changes/03-create-user-providers-table.yaml

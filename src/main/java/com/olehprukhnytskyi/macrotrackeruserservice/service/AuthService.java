@@ -25,10 +25,13 @@ import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.UserRepositor
 import com.olehprukhnytskyi.macrotrackeruserservice.util.JwtUtil;
 import com.olehprukhnytskyi.model.OutboxEvent;
 import com.olehprukhnytskyi.repository.jpa.OutboxRepository;
+import com.olehprukhnytskyi.util.AuthProvider;
 import jakarta.transaction.Transactional;
 import java.security.SecureRandom;
 import java.text.ParseException;
 import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -97,6 +100,7 @@ public class AuthService {
         GoalResponseDto goalResponseDto = goalClient.calculateGoal(dto.getUserDetails());
         userProfileMapper.updateUserProfileFromDto(goalResponseDto, profile);
         newUser.setProfile(profile);
+        newUser.setAuthProviders(new HashSet<>(Collections.singleton(AuthProvider.LOCAL)));
 
         String code = generateOtpCode();
         newUser.setConfirmationCode(code);
@@ -112,34 +116,41 @@ public class AuthService {
         SocialUserDetails userDetails = tokenVerificationService.verifyToken(
                 tokenDto.getToken(), tokenDto.getProvider());
         Optional<User> userFromDb = userRepository.findByEmail(userDetails.getEmail());
+        User user;
         if (userFromDb.isPresent()) {
-            User user = userFromDb.get();
+            user = userFromDb.get();
+            if (!user.getAuthProviders().contains(tokenDto.getProvider())) {
+                user.addAuthProvider(tokenDto.getProvider());
+            }
             if (!user.isEmailConfirmed()) {
                 user.setEmailConfirmed(true);
                 user.setConfirmationCode(null);
-                user.setResetPasswordCode(null);
                 user.setConfirmationCodeExpiresAt(null);
-                user.setResetPasswordCodeExpiresAt(null);
                 userRepository.save(user);
             }
-            return generateAuthResponse(user.getId(), user.getEmail());
+            user = userRepository.save(user);
+        } else {
+            if (tokenDto.getUserDetails() == null) {
+                throw new BadRequestException(AuthErrorCode.REGISTRATION_DATA_REQUIRED,
+                        "Please provide profile details to complete registration");
+            }
+            user = new User();
+            user.setEmail(userDetails.getEmail());
+            user.setAuthProviders(new HashSet<>(Collections.singleton(tokenDto.getProvider())));
+            user.setEmailConfirmed(true);
+            user.setConfirmationCode(null);
+            user.setResetPasswordCode(null);
+            user.setConfirmationCodeExpiresAt(null);
+            user.setResetPasswordCodeExpiresAt(null);
+
+            UserProfile profile = userMapper.toUserProfile(tokenDto.getUserDetails(), user);
+            GoalResponseDto goalResponseDto = goalClient.calculateGoal(tokenDto.getUserDetails());
+            userProfileMapper.updateUserProfileFromDto(goalResponseDto, profile);
+
+            user.setProfile(profile);
+            user = userRepository.save(user);
         }
-        User user = new User();
-        user.setEmail(userDetails.getEmail());
-        user.setAuthProvider(tokenDto.getProvider());
-        user.setEmailConfirmed(true);
-        user.setConfirmationCode(null);
-        user.setResetPasswordCode(null);
-        user.setConfirmationCodeExpiresAt(null);
-        user.setResetPasswordCodeExpiresAt(null);
-
-        UserProfile profile = userMapper.toUserProfile(tokenDto.getUserDetails(), user);
-        GoalResponseDto goalResponseDto = goalClient.calculateGoal(tokenDto.getUserDetails());
-        userProfileMapper.updateUserProfileFromDto(goalResponseDto, profile);
-        user.setProfile(profile);
-
-        User savedUser = userRepository.save(user);
-        return generateAuthResponse(savedUser.getId(), savedUser.getEmail());
+        return generateAuthResponse(user.getId(), user.getEmail());
     }
 
     public AuthResponseDto confirmEmail(String code) {

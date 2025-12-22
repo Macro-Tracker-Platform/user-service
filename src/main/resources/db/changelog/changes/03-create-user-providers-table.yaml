@@ -1,0 +1,31 @@
+databaseChangeLog:
+  - changeSet:
+      id: 1766419507206-1
+      author: oleh.prukhnytskyi
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - createTable:
+            columns:
+              - column:
+                  constraints:
+                    nullable: false
+                  name: user_id
+                  type: BIGINT
+              - column:
+                  constraints:
+                    nullable: false
+                  name: provider
+                  type: VARCHAR(255)
+            tableName: user_providers
+  - changeSet:
+      id: 1766419507206-8
+      author: oleh.prukhnytskyi
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addForeignKeyConstraint:
+            baseColumnNames: user_id
+            baseTableName: user_providers
+            constraintName: fk_user_providers_on_user
+            referencedColumnNames: id
+            referencedTableName: users
+

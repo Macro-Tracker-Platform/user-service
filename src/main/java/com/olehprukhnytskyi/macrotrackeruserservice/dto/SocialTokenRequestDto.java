@@ -2,6 +2,7 @@ package com.olehprukhnytskyi.macrotrackeruserservice.dto;
 
 import com.olehprukhnytskyi.util.AuthProvider;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
@@ -30,7 +31,7 @@ public class SocialTokenRequestDto {
             description = "User profile details",
             requiredMode = Schema.RequiredMode.REQUIRED
     )
-    @NotNull
+    @Valid
     private UserDetailsRequestDto userDetails;
 
     public SocialTokenRequestDto(String token, AuthProvider provider) {

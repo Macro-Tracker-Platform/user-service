@@ -11,7 +11,6 @@ import org.mapstruct.ReportingPolicy;
 
 @Mapper(config = MapperConfig.class, unmappedTargetPolicy = ReportingPolicy.IGNORE)
 public interface UserMapper {
-    @Mapping(target = "authProvider", constant = "LOCAL")
     User toUser(RegisterRequestDto dto);
 
     @Mapping(target = "id", ignore = true)
