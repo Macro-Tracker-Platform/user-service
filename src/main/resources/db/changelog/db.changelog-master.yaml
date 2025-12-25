@@ -7,3 +7,5 @@ databaseChangeLog:
       file: db/changelog/changes/02-rename-token-to-code.yaml
   - include:
       file: db/changelog/changes/03-create-user-providers-table.yaml
+  - include:
+      file: db/changelog/changes/04-create-shedlock-table.yaml

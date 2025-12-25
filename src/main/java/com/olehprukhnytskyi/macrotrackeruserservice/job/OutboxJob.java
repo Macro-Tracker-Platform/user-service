@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +26,11 @@ public class OutboxJob {
     private final ObjectMapper objectMapper;
 
     @Scheduled(fixedDelay = 5000)
+    @SchedulerLock(
+            name = "processUserDeletedEvents",
+            lockAtLeastFor = "PT2S",
+            lockAtMostFor = "PT30S"
+    )
     @Transactional
     public void processUserDeletedEvents() {
         List<OutboxEvent> events = outboxRepository
@@ -52,6 +58,11 @@ public class OutboxJob {
     }
 
     @Scheduled(fixedDelay = 5000)
+    @SchedulerLock(
+            name = "processUserRegisteredEvents",
+            lockAtLeastFor = "PT2S",
+            lockAtMostFor = "PT30S"
+    )
     @Transactional
     public void processUserRegisteredEvents() {
         List<OutboxEvent> events = outboxRepository
@@ -81,6 +92,11 @@ public class OutboxJob {
     }
 
     @Scheduled(fixedDelay = 5000)
+    @SchedulerLock(
+            name = "processPasswordResetEvents",
+            lockAtLeastFor = "PT2S",
+            lockAtMostFor = "PT30S"
+    )
     @Transactional
     public void processPasswordResetEvents() {
         List<OutboxEvent> events = outboxRepository
