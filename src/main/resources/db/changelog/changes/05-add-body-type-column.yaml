@@ -1,0 +1,13 @@
+databaseChangeLog:
+  - changeSet:
+      id: 1767302092870-1
+      author: oleh.prukhnytskyi
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addColumn:
+            columns:
+              - column:
+                  name: body_type
+                  type: VARCHAR(255)
+            tableName: user_profiles
+

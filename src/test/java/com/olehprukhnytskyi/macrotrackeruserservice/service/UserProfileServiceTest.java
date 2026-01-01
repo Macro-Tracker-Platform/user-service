@@ -23,6 +23,7 @@ import com.olehprukhnytskyi.macrotrackeruserservice.projection.UserDetailsProjec
 import com.olehprukhnytskyi.macrotrackeruserservice.projection.UserGoalProjection;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.UserProfileRepository;
 import com.olehprukhnytskyi.util.ActivityLevel;
+import com.olehprukhnytskyi.util.BodyType;
 import com.olehprukhnytskyi.util.Gender;
 import com.olehprukhnytskyi.util.Goal;
 import java.util.Optional;
@@ -51,9 +52,8 @@ class UserProfileServiceTest {
         // Given
         Long userId = 1L;
         UserDetailsProjection projection = mock(UserDetailsProjection.class);
-        UserDetailsResponseDto expectedDto = new UserDetailsResponseDto(
-                25, 70, 180, Gender.MALE, ActivityLevel.MODERATELY_ACTIVE, Goal.MAINTAIN
-        );
+        UserDetailsResponseDto expectedDto = new UserDetailsResponseDto(25, 70, 180,
+                Gender.MALE, ActivityLevel.MODERATELY_ACTIVE, Goal.MAINTAIN, BodyType.NORMAL);
 
         when(userProfileRepository.findDetailsByUserId(userId))
                 .thenReturn(Optional.of(projection));

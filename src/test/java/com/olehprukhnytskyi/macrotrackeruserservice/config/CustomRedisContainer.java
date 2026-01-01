@@ -3,7 +3,7 @@ package com.olehprukhnytskyi.macrotrackeruserservice.config;
 import org.testcontainers.containers.GenericContainer;
 
 public class CustomRedisContainer extends GenericContainer<CustomRedisContainer> {
-    private static final String IMAGE_VERSION = "redis:7.0.12";
+    private static final String IMAGE_VERSION = "redis:8";
     private static CustomRedisContainer container;
 
     private CustomRedisContainer() {

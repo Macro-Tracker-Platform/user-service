@@ -1,6 +1,7 @@
 package com.olehprukhnytskyi.macrotrackeruserservice.model;
 
 import com.olehprukhnytskyi.util.ActivityLevel;
+import com.olehprukhnytskyi.util.BodyType;
 import com.olehprukhnytskyi.util.Gender;
 import com.olehprukhnytskyi.util.Goal;
 import jakarta.persistence.Column;
@@ -45,6 +46,9 @@ public class UserProfile {
 
     @Enumerated(EnumType.STRING)
     private ActivityLevel activityLevel;
+
+    @Enumerated(EnumType.STRING)
+    private BodyType bodyType;
 
     @Enumerated(EnumType.STRING)
     private Goal goal;

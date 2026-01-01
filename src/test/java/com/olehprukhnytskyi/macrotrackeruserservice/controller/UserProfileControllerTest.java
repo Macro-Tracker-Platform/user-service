@@ -27,6 +27,7 @@ import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.UserRepositor
 import com.olehprukhnytskyi.macrotrackeruserservice.service.UserProfileService;
 import com.olehprukhnytskyi.repository.jpa.OutboxRepository;
 import com.olehprukhnytskyi.util.ActivityLevel;
+import com.olehprukhnytskyi.util.BodyType;
 import com.olehprukhnytskyi.util.CustomHeaders;
 import com.olehprukhnytskyi.util.Gender;
 import com.olehprukhnytskyi.util.Goal;
@@ -97,6 +98,7 @@ class UserProfileControllerTest extends AbstractRedisTest {
                 .goal(Goal.LOSE)
                 .height(190)
                 .weight(90)
+                .bodyType(BodyType.NORMAL)
                 .build();
 
         // When
@@ -201,6 +203,7 @@ class UserProfileControllerTest extends AbstractRedisTest {
                 .gender(Gender.MALE)
                 .activityLevel(ActivityLevel.EXTRA_ACTIVE)
                 .goal(Goal.LOSE)
+                .bodyType(BodyType.NORMAL)
                 .recalculate(true)
                 .build();
         String requestJson = objectMapper.writeValueAsString(requestDto);
@@ -209,6 +212,7 @@ class UserProfileControllerTest extends AbstractRedisTest {
                 .weight(70)
                 .height(180)
                 .gender(Gender.MALE)
+                .bodyType(BodyType.NORMAL)
                 .activityLevel(ActivityLevel.EXTRA_ACTIVE)
                 .goal(Goal.LOSE)
                 .build();
@@ -244,6 +248,7 @@ class UserProfileControllerTest extends AbstractRedisTest {
                 .gender(Gender.FEMALE)
                 .activityLevel(ActivityLevel.LIGHTLY_ACTIVE)
                 .goal(Goal.MAINTAIN)
+                .bodyType(BodyType.NORMAL)
                 .recalculate(false)
                 .build();
         String requestJson = objectMapper.writeValueAsString(requestDto);
@@ -252,6 +257,7 @@ class UserProfileControllerTest extends AbstractRedisTest {
                 .weight(80)
                 .height(175)
                 .gender(Gender.FEMALE)
+                .bodyType(BodyType.NORMAL)
                 .activityLevel(ActivityLevel.LIGHTLY_ACTIVE)
                 .goal(Goal.MAINTAIN)
                 .build();

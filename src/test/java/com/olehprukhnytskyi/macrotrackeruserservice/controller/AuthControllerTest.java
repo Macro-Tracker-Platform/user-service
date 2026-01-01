@@ -29,6 +29,7 @@ import com.olehprukhnytskyi.macrotrackeruserservice.service.SocialTokenVerificat
 import com.olehprukhnytskyi.macrotrackeruserservice.util.JwtUtil;
 import com.olehprukhnytskyi.util.ActivityLevel;
 import com.olehprukhnytskyi.util.AuthProvider;
+import com.olehprukhnytskyi.util.BodyType;
 import com.olehprukhnytskyi.util.Gender;
 import com.olehprukhnytskyi.util.Goal;
 import java.security.KeyPair;
@@ -92,6 +93,7 @@ class AuthControllerTest {
         userDetailsDto.setGender(Gender.MALE);
         userDetailsDto.setHeight(180);
         userDetailsDto.setActivityLevel(ActivityLevel.MODERATELY_ACTIVE);
+        userDetailsDto.setBodyType(BodyType.NORMAL);
     }
 
     @Sql(
