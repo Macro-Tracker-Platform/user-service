@@ -1,6 +1,6 @@
 # User Service
 
-[**← Back to Main Architecture**](https://github.com/oleh-prukhnytskyi/macro-tracker)
+[**← Back to Main Architecture**](https://github.com/Macro-Tracker-Platform)
 
 ![Java](https://img.shields.io/badge/java-%23ED8B00.svg?style=for-the-badge&logo=openjdk&logoColor=white)
 ![Spring Boot](https://img.shields.io/badge/spring-%236DB33F.svg?style=for-the-badge&logo=spring&logoColor=white)
