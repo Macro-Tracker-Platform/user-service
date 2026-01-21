@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 
 @Slf4j
@@ -48,7 +49,11 @@ public class UserProfileService {
         return profileMapper.toDto(goalsProjection);
     }
 
-    @CacheEvict(value = "userDetails", key = "#userId")
+    @Caching(evict = {
+            @CacheEvict(value = "userDetails", key = "#userId"),
+            @CacheEvict(value = "userGoals", key = "#userId",
+                    condition = "#requestDto.isRecalculate()")
+    })
     public UserDetailsResponseDto updateUserDetails(
             UpdateUserDetailsRequestDto requestDto, Long userId) {
         UserProfile profile = userProfileRepository.findById(userId)
