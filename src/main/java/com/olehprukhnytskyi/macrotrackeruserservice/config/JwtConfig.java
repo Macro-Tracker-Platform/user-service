@@ -27,6 +27,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 @Configuration
 @RequiredArgsConstructor
 public class JwtConfig {
+    private static final int PASSWORD_ENCODER_STRENGTH = 8;
     private final JwtProperties jwtProperties;
 
     @Bean
@@ -73,7 +74,7 @@ public class JwtConfig {
 
     @Bean
     public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
+        return new BCryptPasswordEncoder(PASSWORD_ENCODER_STRENGTH);
     }
 
     private PrivateKey readPrivateKey(String key) throws Exception {
