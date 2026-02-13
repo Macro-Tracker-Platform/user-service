@@ -34,6 +34,7 @@ import com.olehprukhnytskyi.util.BodyType;
 import com.olehprukhnytskyi.util.Gender;
 import com.olehprukhnytskyi.util.Goal;
 import java.security.KeyPair;
+import net.javacrumbs.shedlock.core.LockProvider;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -69,6 +70,8 @@ class AuthControllerTest {
     private RSASSASigner rsassaSigner;
     @MockitoBean
     private OutboxJob outboxJob;
+    @MockitoBean
+    private LockProvider lockProvider;
 
     @Autowired
     private ObjectMapper objectMapper;

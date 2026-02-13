@@ -33,6 +33,7 @@ import com.olehprukhnytskyi.util.CustomHeaders;
 import com.olehprukhnytskyi.util.Gender;
 import com.olehprukhnytskyi.util.Goal;
 import java.security.KeyPair;
+import net.javacrumbs.shedlock.core.LockProvider;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -80,6 +81,8 @@ class UserProfileControllerTest extends AbstractRedisTest {
     private RSASSASigner rsassaSigner;
     @MockitoBean
     private OutboxJob outboxJob;
+    @MockitoBean
+    private LockProvider lockProvider;
 
     @BeforeAll
     static void beforeAll(
