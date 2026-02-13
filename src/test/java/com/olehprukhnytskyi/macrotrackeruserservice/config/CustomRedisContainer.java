@@ -3,7 +3,7 @@ package com.olehprukhnytskyi.macrotrackeruserservice.config;
 import org.testcontainers.containers.GenericContainer;
 
 public class CustomRedisContainer extends GenericContainer<CustomRedisContainer> {
-    private static final String IMAGE_VERSION = "redis:8";
+    private static final String IMAGE_VERSION = "redis:7-alpine";
     private static CustomRedisContainer container;
 
     private CustomRedisContainer() {
@@ -27,9 +27,5 @@ public class CustomRedisContainer extends GenericContainer<CustomRedisContainer>
 
         System.setProperty("spring.data.redis.host", address);
         System.setProperty("spring.data.redis.port", port.toString());
-    }
-
-    @Override
-    public void stop() {
     }
 }

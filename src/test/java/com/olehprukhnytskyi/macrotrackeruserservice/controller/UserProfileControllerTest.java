@@ -22,6 +22,7 @@ import com.olehprukhnytskyi.macrotrackeruserservice.dto.GoalResponseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.UpdateGoalRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.UpdateUserDetailsRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.UserDetailsResponseDto;
+import com.olehprukhnytskyi.macrotrackeruserservice.job.OutboxJob;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.UserProfileRepository;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.UserRepository;
 import com.olehprukhnytskyi.macrotrackeruserservice.service.UserProfileService;
@@ -77,6 +78,8 @@ class UserProfileControllerTest extends AbstractRedisTest {
     private KeyPair keyPair;
     @MockitoBean
     private RSASSASigner rsassaSigner;
+    @MockitoBean
+    private OutboxJob outboxJob;
 
     @BeforeAll
     static void beforeAll(

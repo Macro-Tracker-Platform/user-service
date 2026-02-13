@@ -24,6 +24,7 @@ import com.olehprukhnytskyi.macrotrackeruserservice.dto.RegisterRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.SocialTokenRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.SocialUserDetails;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.UserDetailsRequestDto;
+import com.olehprukhnytskyi.macrotrackeruserservice.job.OutboxJob;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.UserRepository;
 import com.olehprukhnytskyi.macrotrackeruserservice.service.SocialTokenVerificationService;
 import com.olehprukhnytskyi.macrotrackeruserservice.util.JwtUtil;
@@ -66,6 +67,8 @@ class AuthControllerTest {
     private KeyPair keyPair;
     @MockitoBean
     private RSASSASigner rsassaSigner;
+    @MockitoBean
+    private OutboxJob outboxJob;
 
     @Autowired
     private ObjectMapper objectMapper;
