@@ -43,7 +43,7 @@ Responsible for JWT issuance (RS256), OAuth2 integration, and user profile persi
 | **Security**       | Spring Security + Nimbus JOSE (RS256 Signing)                                   |
 | **Social Login**   | Custom `Strategy Pattern` implementation for Google/Facebook token verification |
 | **Database**       | PostgreSQL + Liquibase                                                          |
-| **Job Scheduling** | Spring Scheduler + ShedLock (Redis provider)                                    |
+| **Job Scheduling** | Spring Scheduler + ShedLock                                                     |
 
 ---
 
@@ -71,7 +71,7 @@ Required variables for `local` or `k8s` deployment:
 | `FACEBOOK_APP_SECRET`             | Required for Facebook Graph API token debugging.                         |
 | **Infrastructure & Integrations** |                                                                          |
 | `KAFKA_URL`                       | Kafka bootstrap servers address.                                         |
-| `REDIS_URL`                       | Redis connection URL (Caching & ShedLock).                               |
+| `REDIS_URL`                       | Redis connection URL.                                                    |
 | `GOAL_SERVICE_URL`                | URL of the internal **Goal Service** (e.g., `http://goal-service:8080`). |
 | `MACRO_TRACKER_URL`               | Public URL of the application (used for Swagger UI configuration).       |
 
