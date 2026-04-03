@@ -102,8 +102,7 @@ class AuthControllerTest {
         userDetailsDto.setBodyType(BodyType.NORMAL);
     }
 
-    @Sql(
-            scripts = "classpath:database/cleanup.sql",
+    @Sql(scripts = "classpath:database/cleanup.sql",
             executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
     @Sql(scripts = "classpath:database/add-user-for-auth.sql",
             executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
@@ -121,9 +120,9 @@ class AuthControllerTest {
                 .refreshToken("jwt_refresh_token")
                 .build();
 
-        when(jwtUtil.generateAccessToken(anyLong(), anyString()))
+        when(jwtUtil.generateAccessToken(anyLong(), anyString(), any()))
                 .thenReturn("jwt_access_token");
-        when(jwtUtil.generateRefreshToken(anyLong(), anyString()))
+        when(jwtUtil.generateRefreshToken(anyLong(), anyString(), any()))
                 .thenReturn("jwt_refresh_token");
 
         // When
@@ -217,9 +216,9 @@ class AuthControllerTest {
 
         String jsonRequest = objectMapper.writeValueAsString(requestDto);
 
-        given(jwtUtil.generateAccessToken(anyLong(), anyString()))
+        given(jwtUtil.generateAccessToken(anyLong(), anyString(), any()))
                 .willReturn("jwt_access_token");
-        given(jwtUtil.generateRefreshToken(anyLong(), anyString()))
+        given(jwtUtil.generateRefreshToken(anyLong(), anyString(), any()))
                 .willReturn("jwt_refresh_token");
         when(goalClient.calculateGoal(any())).thenReturn(new GoalResponseDto());
 
@@ -250,9 +249,9 @@ class AuthControllerTest {
                 .refreshToken("jwt_refresh_token")
                 .build();
 
-        given(jwtUtil.generateAccessToken(anyLong(), anyString()))
+        given(jwtUtil.generateAccessToken(anyLong(), anyString(), any()))
                 .willReturn("jwt_access_token");
-        given(jwtUtil.generateRefreshToken(anyLong(), anyString()))
+        given(jwtUtil.generateRefreshToken(anyLong(), anyString(), any()))
                 .willReturn("jwt_refresh_token");
         given(tokenVerificationService.verifyToken(any(), any()))
                 .willReturn(new SocialUserDetails("test@example.com"));
@@ -288,9 +287,9 @@ class AuthControllerTest {
                 .refreshToken("jwt_refresh_token")
                 .build();
 
-        given(jwtUtil.generateAccessToken(anyLong(), anyString()))
+        given(jwtUtil.generateAccessToken(anyLong(), anyString(), any()))
                 .willReturn("jwt_access_token");
-        given(jwtUtil.generateRefreshToken(anyLong(), anyString()))
+        given(jwtUtil.generateRefreshToken(anyLong(), anyString(), any()))
                 .willReturn("jwt_refresh_token");
         given(tokenVerificationService.verifyToken(any(), any()))
                 .willReturn(new SocialUserDetails("test@example.com"));

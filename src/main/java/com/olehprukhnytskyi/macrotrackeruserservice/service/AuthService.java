@@ -26,12 +26,14 @@ import com.olehprukhnytskyi.macrotrackeruserservice.util.JwtUtil;
 import com.olehprukhnytskyi.model.OutboxEvent;
 import com.olehprukhnytskyi.repository.jpa.OutboxRepository;
 import com.olehprukhnytskyi.util.AuthProvider;
+import com.olehprukhnytskyi.util.UserRole;
 import jakarta.transaction.Transactional;
 import java.security.SecureRandom;
 import java.text.ParseException;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -66,18 +68,19 @@ public class AuthService {
             throw new AuthenticationException(AuthErrorCode.INVALID_CREDENTIALS,
                     "Invalid email or password");
         }
-        return generateAuthResponse(user.getId(), user.getEmail());
+        return generateAuthResponse(user);
     }
 
     public AuthResponseDto refreshToken(String refreshToken) {
         try {
             SignedJWT jwt = jwtUtil.parseAndValidate(refreshToken);
             Long userId = jwt.getJWTClaimsSet().getLongClaim("id");
-            String email = jwt.getJWTClaimsSet().getSubject();
-            return generateAuthResponse(userId, email);
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new AuthenticationException(AuthErrorCode.INVALID_TOKEN,
+                            "User not found"));
+            return generateAuthResponse(user);
         } catch (ParseException e) {
-            throw new AuthenticationException(AuthErrorCode.INVALID_TOKEN,
-                    "Invalid refresh token");
+            throw new AuthenticationException(AuthErrorCode.INVALID_TOKEN, "Invalid refresh token");
         }
     }
 
@@ -95,6 +98,7 @@ public class AuthService {
         }
         User newUser = userMapper.toUser(dto);
         newUser.setPassword(passwordEncoder.encode(dto.getPassword()));
+        newUser.setRoles(new HashSet<>(Collections.singleton(UserRole.USER)));
 
         UserProfile profile = userMapper.toUserProfile(dto.getUserDetails(), newUser);
         GoalResponseDto goalResponseDto = goalClient.calculateGoal(dto.getUserDetails());
@@ -136,6 +140,7 @@ public class AuthService {
             }
             user = new User();
             user.setEmail(userDetails.getEmail());
+            user.setRoles(new HashSet<>(Collections.singleton(UserRole.USER)));
             user.setAuthProviders(new HashSet<>(Collections.singleton(tokenDto.getProvider())));
             user.setEmailConfirmed(true);
             user.setConfirmationCode(null);
@@ -150,7 +155,7 @@ public class AuthService {
             user.setProfile(profile);
             user = userRepository.save(user);
         }
-        return generateAuthResponse(user.getId(), user.getEmail());
+        return generateAuthResponse(user);
     }
 
     public AuthResponseDto confirmEmail(String code) {
@@ -172,7 +177,7 @@ public class AuthService {
         user.setConfirmationCode(null);
         user.setConfirmationCodeExpiresAt(null);
         userRepository.save(user);
-        return generateAuthResponse(user.getId(), user.getEmail());
+        return generateAuthResponse(user);
     }
 
     @Transactional
@@ -225,9 +230,12 @@ public class AuthService {
         userRepository.save(user);
     }
 
-    private AuthResponseDto generateAuthResponse(Long userId, String userEmail) {
-        String access = jwtUtil.generateAccessToken(userId, userEmail);
-        String refresh = jwtUtil.generateRefreshToken(userId, userEmail);
+    private AuthResponseDto generateAuthResponse(User user) {
+        List<String> roles = user.getRoles().stream()
+                .map(Enum::name)
+                .toList();
+        String access = jwtUtil.generateAccessToken(user.getId(), user.getEmail(), roles);
+        String refresh = jwtUtil.generateRefreshToken(user.getId(), user.getEmail(), roles);
         return AuthResponseDto.builder()
                 .accessToken(access)
                 .refreshToken(refresh)

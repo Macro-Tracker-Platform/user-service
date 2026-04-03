@@ -1,6 +1,7 @@
 package com.olehprukhnytskyi.macrotrackeruserservice.model;
 
 import com.olehprukhnytskyi.util.AuthProvider;
+import com.olehprukhnytskyi.util.UserRole;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
@@ -62,7 +63,17 @@ public class User {
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL)
     private UserProfile profile;
 
+    @ElementCollection(targetClass = UserRole.class, fetch = FetchType.EAGER)
+    @CollectionTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"))
+    @Column(name = "role", nullable = false)
+    @Enumerated(EnumType.STRING)
+    private Set<UserRole> roles = new HashSet<>();
+
     public void addAuthProvider(AuthProvider provider) {
         this.authProviders.add(provider);
+    }
+
+    public void addRole(UserRole role) {
+        this.roles.add(role);
     }
 }

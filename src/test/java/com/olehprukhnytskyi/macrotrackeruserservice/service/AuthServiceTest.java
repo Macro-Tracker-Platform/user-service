@@ -198,9 +198,9 @@ class AuthServiceTest {
                 .thenReturn(new SocialUserDetails("test@example.com"));
         when(userRepository.findByEmail(anyString())).thenReturn(Optional.of(user));
         when(userRepository.save(any())).thenReturn(user);
-        when(jwtUtil.generateAccessToken(anyLong(), anyString()))
+        when(jwtUtil.generateAccessToken(anyLong(), anyString(), any()))
                 .thenReturn("jwt_access_token");
-        when(jwtUtil.generateRefreshToken(anyLong(), anyString()))
+        when(jwtUtil.generateRefreshToken(anyLong(), anyString(), any()))
                 .thenReturn("jwt_refresh_token");
 
         // When

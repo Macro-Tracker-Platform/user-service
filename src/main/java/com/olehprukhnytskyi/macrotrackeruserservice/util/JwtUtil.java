@@ -17,6 +17,7 @@ import com.olehprukhnytskyi.macrotrackeruserservice.properties.JwtProperties;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -27,28 +28,21 @@ public class JwtUtil {
     private final RSASSASigner signer;
     private final RSAKey rsaKey;
 
-    public String generateAccessToken(Long userId, String email) {
-        return generateToken(
-                userId,
-                email,
-                jwtProperties.getAccessTokenTtlMinutes()
-        );
+    public String generateAccessToken(Long userId, String email, List<String> roles) {
+        return generateToken(userId, email, roles, jwtProperties.getAccessTokenTtlMinutes());
     }
 
-    public String generateRefreshToken(Long userId, String email) {
-        return generateToken(
-                userId,
-                email,
-                jwtProperties.getRefreshTokenTtlDays() * 1440
-        );
+    public String generateRefreshToken(Long userId, String email, List<String> roles) {
+        return generateToken(userId, email, roles, jwtProperties.getRefreshTokenTtlDays() * 1440);
     }
 
-    private String generateToken(Long userId, String email, long minutes) {
+    private String generateToken(Long userId, String email, List<String> roles, long minutes) {
         try {
             Instant now = Instant.now();
             JWTClaimsSet claims = new JWTClaimsSet.Builder()
                     .subject(email)
                     .claim("id", userId)
+                    .claim("roles", roles)
                     .issuer("user-service")
                     .issueTime(Date.from(now))
                     .expirationTime(Date.from(now.plus(Duration.ofMinutes(minutes))))

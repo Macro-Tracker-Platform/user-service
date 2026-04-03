@@ -11,3 +11,5 @@ databaseChangeLog:
       file: db/changelog/changes/04-create-shedlock-table.yaml
   - include:
       file: db/changelog/changes/05-add-body-type-column.yaml
+  - include:
+      file: db/changelog/changes/06-create-user-roles-table.yaml

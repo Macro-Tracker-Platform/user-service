@@ -1,0 +1,38 @@
+databaseChangeLog:
+  - changeSet:
+      id: 1775240026553-1
+      author: oleh.prukhnytskyi
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - createTable:
+            columns:
+              - column:
+                  constraints:
+                    nullable: false
+                  name: user_id
+                  type: BIGINT
+              - column:
+                  constraints:
+                    nullable: false
+                  name: role
+                  type: VARCHAR(255)
+            tableName: user_roles
+  - changeSet:
+      id: 1775240026553-2
+      author: oleh.prukhnytskyi
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addForeignKeyConstraint:
+            baseColumnNames: user_id
+            baseTableName: user_roles
+            constraintName: fk_user_roles_on_user
+            referencedColumnNames: id
+            referencedTableName: users
+  - changeSet:
+      id: assign-default-role-to-existing-users
+      author: oleh.prukhnytskyi
+      changes:
+        - sql:
+            sql: >
+              INSERT INTO user_roles (user_id, role)
+              SELECT id, 'USER' FROM users;
