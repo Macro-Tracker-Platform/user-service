@@ -12,7 +12,6 @@ import static org.mockito.Mockito.when;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.olehprukhnytskyi.exception.BadRequestException;
 import com.olehprukhnytskyi.exception.error.AuthErrorCode;
-import com.olehprukhnytskyi.macrotrackeruserservice.client.GoalClient;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.AuthResponseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.LoginRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.RegisterRequestDto;
@@ -46,8 +45,6 @@ class AuthServiceTest {
     private UserRepository userRepository;
     @Mock
     private UserMapper userMapper;
-    @Mock
-    private GoalClient goalClient;
     @Mock
     private UserProfileMapper userProfileMapper;
     @Mock

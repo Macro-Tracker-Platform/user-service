@@ -8,18 +8,21 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Schema(description = "User profile details for registration")
+@Schema(description = "User profile details for goal calculation")
 public class UserDetailsRequestDto {
     @Schema(
             description = "User age in years",
-            example = "25",
-            requiredMode = Schema.RequiredMode.REQUIRED
+            example = "28",
+            requiredMode = Schema.RequiredMode.REQUIRED,
+            minimum = "1"
     )
     @NotNull
     @Positive
@@ -27,8 +30,9 @@ public class UserDetailsRequestDto {
 
     @Schema(
             description = "User weight in kilograms",
-            example = "70",
-            requiredMode = Schema.RequiredMode.REQUIRED
+            example = "75",
+            requiredMode = Schema.RequiredMode.REQUIRED,
+            minimum = "1"
     )
     @NotNull
     @Positive
@@ -36,8 +40,9 @@ public class UserDetailsRequestDto {
 
     @Schema(
             description = "User height in centimeters",
-            example = "175",
-            requiredMode = Schema.RequiredMode.REQUIRED
+            example = "180",
+            requiredMode = Schema.RequiredMode.REQUIRED,
+            minimum = "1"
     )
     @NotNull
     @Positive

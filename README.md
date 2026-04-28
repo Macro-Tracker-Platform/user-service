@@ -24,6 +24,8 @@ Responsible for JWT issuance (RS256), OAuth2 integration, and user profile persi
 * **Data Consistency**: Implements **Transactional Outbox** specifically for `User` entities to ensure reliable Kafka synchronization.
 * **Concurrency Control**: Uses **ShedLock** to guarantee single-instance execution of the background event publisher.
 * **Caching Strategy**: Heavily caches `UserProfile` objects in Redis (`@Cacheable`) to minimize DB hits during repetitive BFF requests.
+* **Scientific Accuracy**: Implements the **Mifflin-St Jeor** equation (standard for clinical settings) with activity level multipliers to determine Basal Metabolic Rate (BMR) and Total Daily Energy Expenditure (TDEE).
+* **Goal Adaptation**: Automatically adjusts calculations based on the user's specific objective (Weight Loss, Maintenance, or Muscle Gain).
 
 ---
 

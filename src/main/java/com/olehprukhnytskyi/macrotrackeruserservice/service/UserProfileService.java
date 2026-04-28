@@ -2,7 +2,6 @@ package com.olehprukhnytskyi.macrotrackeruserservice.service;
 
 import com.olehprukhnytskyi.exception.NotFoundException;
 import com.olehprukhnytskyi.exception.error.UserErrorCode;
-import com.olehprukhnytskyi.macrotrackeruserservice.client.GoalClient;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.GoalResponseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.UpdateGoalRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.UpdateUserDetailsRequestDto;
@@ -25,7 +24,6 @@ import org.springframework.stereotype.Service;
 public class UserProfileService {
     private final UserProfileRepository userProfileRepository;
     private final UserProfileMapper profileMapper;
-    private final GoalClient goalClient;
 
     @Cacheable(value = "userDetails", key = "#userId")
     public UserDetailsResponseDto findDetailsByUserId(Long userId) {
@@ -63,7 +61,7 @@ public class UserProfileService {
                             "Profile not found");
                 });
         if (requestDto.isRecalculate()) {
-            GoalResponseDto calculatedGoal = goalClient.calculateGoal(
+            GoalResponseDto calculatedGoal = CalorieCalculatorService.calculateGoal(
                     profileMapper.toUserDetailsRequest(requestDto));
             profileMapper.updateUserGoalFromDto(profile, calculatedGoal);
             log.info("User goal recalculated for userId={}", userId);

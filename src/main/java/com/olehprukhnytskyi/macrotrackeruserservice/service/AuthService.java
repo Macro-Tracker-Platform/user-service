@@ -9,7 +9,6 @@ import com.olehprukhnytskyi.exception.BadRequestException;
 import com.olehprukhnytskyi.exception.InternalServerException;
 import com.olehprukhnytskyi.exception.error.AuthErrorCode;
 import com.olehprukhnytskyi.exception.error.CommonErrorCode;
-import com.olehprukhnytskyi.macrotrackeruserservice.client.GoalClient;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.AuthResponseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.GoalResponseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.LoginRequestDto;
@@ -52,7 +51,6 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final UserRepository userRepository;
     private final UserMapper userMapper;
-    private final GoalClient goalClient;
     private final JwtUtil jwtUtil;
     private final ObjectMapper objectMapper;
 
@@ -101,7 +99,8 @@ public class AuthService {
         newUser.setRoles(new HashSet<>(Collections.singleton(UserRole.USER)));
 
         UserProfile profile = userMapper.toUserProfile(dto.getUserDetails(), newUser);
-        GoalResponseDto goalResponseDto = goalClient.calculateGoal(dto.getUserDetails());
+        GoalResponseDto goalResponseDto = CalorieCalculatorService
+                .calculateGoal(dto.getUserDetails());
         userProfileMapper.updateUserProfileFromDto(goalResponseDto, profile);
         newUser.setProfile(profile);
         newUser.setAuthProviders(new HashSet<>(Collections.singleton(AuthProvider.LOCAL)));
@@ -149,7 +148,8 @@ public class AuthService {
             user.setResetPasswordCodeExpiresAt(null);
 
             UserProfile profile = userMapper.toUserProfile(tokenDto.getUserDetails(), user);
-            GoalResponseDto goalResponseDto = goalClient.calculateGoal(tokenDto.getUserDetails());
+            GoalResponseDto goalResponseDto = CalorieCalculatorService
+                    .calculateGoal(tokenDto.getUserDetails());
             userProfileMapper.updateUserProfileFromDto(goalResponseDto, profile);
 
             user.setProfile(profile);

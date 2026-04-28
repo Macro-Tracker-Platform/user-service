@@ -16,9 +16,7 @@ import com.nimbusds.jose.jwk.RSAKey;
 import com.olehprukhnytskyi.dto.ProblemDetails;
 import com.olehprukhnytskyi.exception.error.AuthErrorCode;
 import com.olehprukhnytskyi.exception.error.BaseErrorCode;
-import com.olehprukhnytskyi.macrotrackeruserservice.client.GoalClient;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.AuthResponseDto;
-import com.olehprukhnytskyi.macrotrackeruserservice.dto.GoalResponseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.LoginRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.RegisterRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.SocialTokenRequestDto;
@@ -58,8 +56,6 @@ class AuthControllerTest {
     private JwtUtil jwtUtil;
     @MockitoBean
     private SocialTokenVerificationService tokenVerificationService;
-    @MockitoBean
-    private GoalClient goalClient;
     @MockitoBean
     private RSAKey rsaKey;
     @MockitoBean
@@ -220,7 +216,6 @@ class AuthControllerTest {
                 .willReturn("jwt_access_token");
         given(jwtUtil.generateRefreshToken(anyLong(), anyString(), any()))
                 .willReturn("jwt_refresh_token");
-        when(goalClient.calculateGoal(any())).thenReturn(new GoalResponseDto());
 
         // When
         mockMvc.perform(
@@ -293,7 +288,6 @@ class AuthControllerTest {
                 .willReturn("jwt_refresh_token");
         given(tokenVerificationService.verifyToken(any(), any()))
                 .willReturn(new SocialUserDetails("test@example.com"));
-        when(goalClient.calculateGoal(any())).thenReturn(new GoalResponseDto());
 
         // When
         MvcResult mvcResult = mockMvc.perform(

@@ -12,10 +12,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.olehprukhnytskyi.exception.NotFoundException;
-import com.olehprukhnytskyi.macrotrackeruserservice.client.GoalClient;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.GoalResponseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.UpdateGoalRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.UpdateUserDetailsRequestDto;
+import com.olehprukhnytskyi.macrotrackeruserservice.dto.UserDetailsRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.UserDetailsResponseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.mapper.UserProfileMapper;
 import com.olehprukhnytskyi.macrotrackeruserservice.model.UserProfile;
@@ -40,8 +40,6 @@ class UserProfileServiceTest {
     private UserProfileRepository userProfileRepository;
     @Mock
     private UserProfileMapper profileMapper;
-    @Mock
-    private GoalClient goalClient;
 
     @InjectMocks
     private UserProfileService userProfileService;
@@ -165,19 +163,33 @@ class UserProfileServiceTest {
                 .build();
 
         UserProfile profile = new UserProfile();
-        GoalResponseDto calculatedGoal = new GoalResponseDto();
-        UserDetailsResponseDto expectedResponse = new UserDetailsResponseDto();
+        UserDetailsResponseDto expectedResponse = UserDetailsResponseDto.builder()
+                .age(25)
+                .weight(70)
+                .height(180)
+                .gender(Gender.MALE)
+                .activityLevel(ActivityLevel.EXTRA_ACTIVE)
+                .goal(Goal.LOSE)
+                .build();
+        UserDetailsRequestDto detailsRequestDto = UserDetailsRequestDto.builder()
+                .age(25)
+                .weight(70)
+                .height(180)
+                .gender(Gender.MALE)
+                .activityLevel(ActivityLevel.EXTRA_ACTIVE)
+                .goal(Goal.LOSE)
+                .build();
 
         when(userProfileRepository.findById(userId)).thenReturn(Optional.of(profile));
-        when(goalClient.calculateGoal(any())).thenReturn(calculatedGoal);
         when(profileMapper.toUserDetailsResponse(profile)).thenReturn(expectedResponse);
+        when(profileMapper.toUserDetailsRequest(any())).thenReturn(detailsRequestDto);
 
         // When
         UserDetailsResponseDto result = userProfileService.updateUserDetails(requestDto, userId);
 
         // Then
-        verify(goalClient, times(1)).calculateGoal(any());
-        verify(profileMapper, times(1)).updateUserGoalFromDto(profile, calculatedGoal);
+        verify(profileMapper, times(1))
+                .updateUserGoalFromDto(eq(profile), any(GoalResponseDto.class));
         verify(profileMapper, times(1)).updateUserDetailsFromDto(profile, requestDto);
         verify(userProfileRepository, times(1)).save(profile);
 
@@ -211,7 +223,6 @@ class UserProfileServiceTest {
         // Then
         assertThat(result).isEqualTo(expectedResponse);
 
-        verify(goalClient, never()).calculateGoal(any());
         verify(profileMapper, never()).updateUserGoalFromDto(any(), any());
         verify(profileMapper, times(1)).updateUserDetailsFromDto(profile, requestDto);
         verify(userProfileRepository, times(1)).save(profile);

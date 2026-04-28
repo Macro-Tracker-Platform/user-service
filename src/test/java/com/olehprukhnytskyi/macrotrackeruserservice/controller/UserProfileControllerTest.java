@@ -3,10 +3,8 @@ package com.olehprukhnytskyi.macrotrackeruserservice.controller;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -16,7 +14,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nimbusds.jose.crypto.RSASSASigner;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.RSAKey;
-import com.olehprukhnytskyi.macrotrackeruserservice.client.GoalClient;
 import com.olehprukhnytskyi.macrotrackeruserservice.config.AbstractRedisTest;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.GoalResponseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.UpdateGoalRequestDto;
@@ -65,8 +62,6 @@ class UserProfileControllerTest extends AbstractRedisTest {
     @MockitoSpyBean
     private UserProfileRepository userProfileRepository;
 
-    @MockitoBean
-    private GoalClient goalClient;
     @MockitoBean
     private OutboxRepository outboxRepository;
     @InjectMocks
@@ -223,8 +218,6 @@ class UserProfileControllerTest extends AbstractRedisTest {
                 .goal(Goal.LOSE)
                 .build();
 
-        when(goalClient.calculateGoal(any())).thenReturn(new GoalResponseDto());
-
         // When
         MvcResult mvcResult = mockMvc.perform(
                         patch("/api/profile/details")
@@ -236,8 +229,6 @@ class UserProfileControllerTest extends AbstractRedisTest {
                 .andReturn();
 
         // Then
-        verify(goalClient, times(1)).calculateGoal(any());
-
         String expected = objectMapper.writeValueAsString(userDetailsResponseDto);
         assertEquals(expected, mvcResult.getResponse().getContentAsString());
     }
@@ -281,8 +272,6 @@ class UserProfileControllerTest extends AbstractRedisTest {
         // Then
         String expected = objectMapper.writeValueAsString(userDetailsResponseDto);
         assertEquals(expected, mvcResult.getResponse().getContentAsString());
-
-        verify(goalClient, never()).calculateGoal(any());
     }
 
     @Test
