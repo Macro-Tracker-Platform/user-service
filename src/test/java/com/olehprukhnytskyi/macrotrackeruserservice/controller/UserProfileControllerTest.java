@@ -99,6 +99,7 @@ class UserProfileControllerTest extends AbstractRedisTest {
                 .goal(Goal.LOSE)
                 .height(190)
                 .weight(90)
+                .goalWeight(60)
                 .bodyType(BodyType.NORMAL)
                 .build();
 

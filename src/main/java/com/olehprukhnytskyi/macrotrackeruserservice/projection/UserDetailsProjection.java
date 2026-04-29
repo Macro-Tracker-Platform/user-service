@@ -10,6 +10,8 @@ public interface UserDetailsProjection {
 
     Integer getWeight();
 
+    Integer getGoalWeight();
+
     Integer getHeight();
 
     Gender getGender();
