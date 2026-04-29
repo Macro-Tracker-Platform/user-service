@@ -25,6 +25,10 @@ public class UpdateUserDetailsRequestDto {
     @Positive
     private Integer weight;
 
+    @Schema(description = "User goal weight in kilograms", example = "70", minimum = "1")
+    @Positive
+    private Integer goalWeight;
+
     @Schema(description = "User height in centimeters", example = "175", minimum = "1")
     @Positive
     private Integer height;

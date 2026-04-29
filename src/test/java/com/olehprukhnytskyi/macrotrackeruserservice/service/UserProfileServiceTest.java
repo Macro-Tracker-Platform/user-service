@@ -50,7 +50,7 @@ class UserProfileServiceTest {
         // Given
         Long userId = 1L;
         UserDetailsProjection projection = mock(UserDetailsProjection.class);
-        UserDetailsResponseDto expectedDto = new UserDetailsResponseDto(25, 70, 180,
+        UserDetailsResponseDto expectedDto = new UserDetailsResponseDto(25, 70, 70, 180,
                 Gender.MALE, ActivityLevel.MODERATELY_ACTIVE, Goal.MAINTAIN, BodyType.NORMAL);
 
         when(userProfileRepository.findDetailsByUserId(userId))

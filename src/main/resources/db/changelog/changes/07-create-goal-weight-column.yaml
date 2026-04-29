@@ -1,0 +1,31 @@
+databaseChangeLog:
+  - changeSet:
+      id: 1777462310797-1
+      author: oleh.prukhnytskyi
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addColumn:
+            columns:
+              - column:
+                  name: goal_weight
+                  type: INT
+            tableName: user_profiles
+  - changeSet:
+      id: 1777462310797-1-update-data
+      author: oleh.prukhnytskyi
+      changes:
+        - update:
+            tableName: user_profiles
+            columns:
+              - column:
+                  name: goal_weight
+                  valueComputed: weight
+            where: goal_weight IS NULL
+  - changeSet:
+      id: 1777462310797-2
+      author: oleh.prukhnytskyi
+      objectQuotingStrategy: QUOTE_ONLY_RESERVED_WORDS
+      changes:
+        - addNotNullConstraint:
+            columnName: goal_weight
+            tableName: user_profiles

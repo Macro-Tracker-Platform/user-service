@@ -39,6 +39,15 @@ public class UserDetailsRequestDto {
     private Integer weight;
 
     @Schema(
+            description = "User goal weight in kilograms",
+            example = "70",
+            requiredMode = Schema.RequiredMode.NOT_REQUIRED,
+            minimum = "1"
+    )
+    @Positive
+    private Integer goalWeight;
+
+    @Schema(
             description = "User height in centimeters",
             example = "180",
             requiredMode = Schema.RequiredMode.REQUIRED,

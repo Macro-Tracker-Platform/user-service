@@ -22,6 +22,9 @@ public class UserDetailsResponseDto {
     @Schema(description = "User weight in kilograms", example = "70")
     private Integer weight;
 
+    @Schema(description = "User goal weight in kilograms", example = "70")
+    private Integer goalWeight;
+
     @Schema(description = "User height in centimeters", example = "175")
     private Integer height;
 

@@ -39,6 +39,9 @@ public class UserProfile {
     private Integer weight;
 
     @Column(nullable = false)
+    private Integer goalWeight;
+
+    @Column(nullable = false)
     private Integer height;
 
     @Enumerated(EnumType.STRING)

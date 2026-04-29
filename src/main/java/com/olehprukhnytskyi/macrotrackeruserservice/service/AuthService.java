@@ -99,6 +99,14 @@ public class AuthService {
         newUser.setRoles(new HashSet<>(Collections.singleton(UserRole.USER)));
 
         UserProfile profile = userMapper.toUserProfile(dto.getUserDetails(), newUser);
+        if (dto.getUserDetails().getGoalWeight() != null) {
+            profile.setGoalWeight(dto.getUserDetails().getGoalWeight());
+        } else {
+            log.warn("Registration from old client version: goalWeight is missing for user {}. "
+                     + "Using current weight.", dto.getEmail());
+            profile.setGoalWeight(dto.getUserDetails().getWeight());
+        }
+
         GoalResponseDto goalResponseDto = CalorieCalculatorService
                 .calculateGoal(dto.getUserDetails());
         userProfileMapper.updateUserProfileFromDto(goalResponseDto, profile);
@@ -148,6 +156,14 @@ public class AuthService {
             user.setResetPasswordCodeExpiresAt(null);
 
             UserProfile profile = userMapper.toUserProfile(tokenDto.getUserDetails(), user);
+            if (tokenDto.getUserDetails().getGoalWeight() != null) {
+                profile.setGoalWeight(tokenDto.getUserDetails().getGoalWeight());
+            } else {
+                log.warn("Social auth from old client: goalWeight is missing. "
+                         + "Using current weight.");
+                profile.setGoalWeight(tokenDto.getUserDetails().getWeight());
+            }
+
             GoalResponseDto goalResponseDto = CalorieCalculatorService
                     .calculateGoal(tokenDto.getUserDetails());
             userProfileMapper.updateUserProfileFromDto(goalResponseDto, profile);
