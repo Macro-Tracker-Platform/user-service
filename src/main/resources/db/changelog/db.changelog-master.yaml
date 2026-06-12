@@ -15,3 +15,5 @@ databaseChangeLog:
       file: db/changelog/changes/06-create-user-roles-table.yaml
   - include:
       file: db/changelog/changes/07-create-goal-weight-column.yaml
+  - include:
+      file: db/changelog/changes/08-add-water-goal-column.yaml

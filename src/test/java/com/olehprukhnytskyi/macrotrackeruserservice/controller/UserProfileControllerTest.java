@@ -137,6 +137,7 @@ class UserProfileControllerTest extends AbstractRedisTest {
                 .carbohydrates(300)
                 .fat(80)
                 .protein(130)
+                .waterGoalMl(2800)
                 .build();
 
         // When
@@ -287,6 +288,7 @@ class UserProfileControllerTest extends AbstractRedisTest {
         requestDto.setProtein(120);
         requestDto.setCarbohydrates(250);
         requestDto.setFat(70);
+        requestDto.setWaterGoalMl(2400);
         String requestJson = objectMapper.writeValueAsString(requestDto);
 
         // When

@@ -1,0 +1,22 @@
+databaseChangeLog:
+  - changeSet:
+      id: 1781265600000-1
+      author: codex
+      changes:
+        - addColumn:
+            tableName: user_profiles
+            columns:
+              - column:
+                  name: water_goal_ml
+                  type: INT
+        - update:
+            tableName: user_profiles
+            columns:
+              - column:
+                  name: water_goal_ml
+                  valueComputed: ROUND(weight * 35.0 / 50.0) * 50
+            where: water_goal_ml IS NULL
+        - addNotNullConstraint:
+            tableName: user_profiles
+            columnName: water_goal_ml
+            columnDataType: INT

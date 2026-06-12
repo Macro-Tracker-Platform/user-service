@@ -67,4 +67,7 @@ public class UserProfile {
 
     @Column(nullable = false)
     private Integer protein;
+
+    @Column(nullable = false)
+    private Integer waterGoalMl;
 }

@@ -96,6 +96,7 @@ class UserProfileServiceTest {
                 .carbohydrates(100)
                 .fat(10)
                 .protein(20)
+                .waterGoalMl(2450)
                 .build();
 
         when(userProfileRepository.findGoalsByUserId(userId))
@@ -235,12 +236,14 @@ class UserProfileServiceTest {
         Long userId = 1L;
         UpdateGoalRequestDto requestDto = new UpdateGoalRequestDto();
         requestDto.setCalories(1000);
+        requestDto.setWaterGoalMl(2400);
 
         UserProfile profile = new UserProfile();
         profile.setId(userId);
 
         GoalResponseDto expectedResponse = new GoalResponseDto();
         expectedResponse.setCalories(1000);
+        expectedResponse.setWaterGoalMl(2400);
 
         when(userProfileRepository.findById(userId)).thenReturn(Optional.of(profile));
         when(profileMapper.toUserGoalResponse(requestDto)).thenReturn(expectedResponse);

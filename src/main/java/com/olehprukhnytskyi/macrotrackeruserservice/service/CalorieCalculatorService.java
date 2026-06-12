@@ -15,6 +15,8 @@ public class CalorieCalculatorService {
     private static final int MIN_CALORIES_MALE = 1500;
     private static final int MAX_SAFE_PROTEIN = 220;
     private static final int MAX_SAFE_FAT = 110;
+    private static final int WATER_ML_PER_KG = 35;
+    private static final int WATER_GOAL_ROUNDING_ML = 50;
 
     public static GoalResponseDto calculateGoal(UserDetailsRequestDto data) {
         double heightMeters = data.getHeight() / 100.0;
@@ -109,7 +111,14 @@ public class CalorieCalculatorService {
             remainingCalories = 0;
         }
         int carbs = remainingCalories / CALORIES_PER_GRAM_CARBS;
-        return new GoalResponseDto(targetCalories, protein, fat, carbs);
+        int waterGoalMl = calculateWaterGoal(data.getWeight());
+        return new GoalResponseDto(targetCalories, protein, fat, carbs, waterGoalMl);
+    }
+
+    private static int calculateWaterGoal(int weightKg) {
+        int unroundedGoal = weightKg * WATER_ML_PER_KG;
+        return Math.round((float) unroundedGoal / WATER_GOAL_ROUNDING_ML)
+               * WATER_GOAL_ROUNDING_ML;
     }
 
     private static double getProteinMultiplier(BodyType bodyType, Goal goal) {

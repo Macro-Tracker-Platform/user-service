@@ -23,6 +23,7 @@ import com.olehprukhnytskyi.macrotrackeruserservice.dto.SocialTokenRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.SocialUserDetails;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.UserDetailsRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.job.OutboxJob;
+import com.olehprukhnytskyi.macrotrackeruserservice.model.User;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.UserRepository;
 import com.olehprukhnytskyi.macrotrackeruserservice.service.SocialTokenVerificationService;
 import com.olehprukhnytskyi.macrotrackeruserservice.util.JwtUtil;
@@ -224,6 +225,9 @@ class AuthControllerTest {
                                 .contentType(MediaType.APPLICATION_JSON)
                 )
                 .andExpect(status().isOk());
+
+        User registeredUser = userRepository.findByEmail("test@example.com").orElseThrow();
+        assertEquals(2800, registeredUser.getProfile().getWaterGoalMl());
     }
 
     @Sql(scripts = "classpath:database/add-user-for-auth.sql",

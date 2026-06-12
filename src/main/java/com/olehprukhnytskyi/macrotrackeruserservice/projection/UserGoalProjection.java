@@ -8,4 +8,6 @@ public interface UserGoalProjection {
     Integer getFat();
 
     Integer getProtein();
+
+    Integer getWaterGoalMl();
 }
