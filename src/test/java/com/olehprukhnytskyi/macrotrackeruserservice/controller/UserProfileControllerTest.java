@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -18,11 +19,14 @@ import com.olehprukhnytskyi.macrotrackeruserservice.config.AbstractRedisTest;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.GoalResponseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.UpdateGoalRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.UpdateUserDetailsRequestDto;
+import com.olehprukhnytskyi.macrotrackeruserservice.dto.UpdateWaterGoalRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.UserDetailsResponseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.job.OutboxJob;
+import com.olehprukhnytskyi.macrotrackeruserservice.model.UserProfile;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.UserProfileRepository;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.UserRepository;
 import com.olehprukhnytskyi.macrotrackeruserservice.service.UserProfileService;
+import com.olehprukhnytskyi.macrotrackeruserservice.util.WaterGoalMode;
 import com.olehprukhnytskyi.repository.jpa.OutboxRepository;
 import com.olehprukhnytskyi.util.ActivityLevel;
 import com.olehprukhnytskyi.util.BodyType;
@@ -138,6 +142,7 @@ class UserProfileControllerTest extends AbstractRedisTest {
                 .fat(80)
                 .protein(130)
                 .waterGoalMl(2800)
+                .waterGoalMode(WaterGoalMode.AUTO)
                 .build();
 
         // When
@@ -288,8 +293,15 @@ class UserProfileControllerTest extends AbstractRedisTest {
         requestDto.setProtein(120);
         requestDto.setCarbohydrates(250);
         requestDto.setFat(70);
-        requestDto.setWaterGoalMl(2400);
         String requestJson = objectMapper.writeValueAsString(requestDto);
+        GoalResponseDto expectedResponse = GoalResponseDto.builder()
+                .calories(2200)
+                .protein(120)
+                .carbohydrates(250)
+                .fat(70)
+                .waterGoalMl(2800)
+                .waterGoalMode(WaterGoalMode.AUTO)
+                .build();
 
         // When
         MvcResult mvcResult = mockMvc.perform(
@@ -302,11 +314,59 @@ class UserProfileControllerTest extends AbstractRedisTest {
                 .andReturn();
 
         // Then
-        String expected = objectMapper.writeValueAsString(requestDto);
+        String expected = objectMapper.writeValueAsString(expectedResponse);
         assertEquals(expected, mvcResult.getResponse().getContentAsString());
 
         verify(userProfileRepository, times(1)).findById(userId);
         verify(userProfileRepository, times(1)).save(any());
+    }
+
+    @Test
+    @DisplayName("When custom water goal is set, should return custom mode")
+    void updateWaterGoal_whenValidRequest_shouldReturnCustomMode() throws Exception {
+        // Given
+        UpdateWaterGoalRequestDto requestDto = new UpdateWaterGoalRequestDto();
+        requestDto.setWaterGoalMl(3333);
+
+        // When
+        MvcResult mvcResult = mockMvc.perform(
+                        put("/api/profile/goal/water")
+                                .header(CustomHeaders.X_USER_ID, 1)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(requestDto))
+                )
+                .andExpect(status().isOk())
+                .andReturn();
+
+        // Then
+        GoalResponseDto response = objectMapper.readValue(
+                mvcResult.getResponse().getContentAsString(), GoalResponseDto.class);
+        assertEquals(3333, response.getWaterGoalMl());
+        assertEquals(WaterGoalMode.CUSTOM, response.getWaterGoalMode());
+    }
+
+    @Test
+    @DisplayName("When custom water goal is reset, should return automatic goal")
+    void resetWaterGoal_whenCalled_shouldReturnAutomaticGoal() throws Exception {
+        // Given
+        UserProfile profile = userProfileRepository.findById(1L).orElseThrow();
+        profile.setWaterGoalMl(3333);
+        profile.setWaterGoalMode(WaterGoalMode.CUSTOM);
+        userProfileRepository.save(profile);
+
+        // When
+        MvcResult mvcResult = mockMvc.perform(
+                        delete("/api/profile/goal/water")
+                                .header(CustomHeaders.X_USER_ID, 1)
+                )
+                .andExpect(status().isOk())
+                .andReturn();
+
+        // Then
+        GoalResponseDto response = objectMapper.readValue(
+                mvcResult.getResponse().getContentAsString(), GoalResponseDto.class);
+        assertEquals(2800, response.getWaterGoalMl());
+        assertEquals(WaterGoalMode.AUTO, response.getWaterGoalMode());
     }
 
     @Test

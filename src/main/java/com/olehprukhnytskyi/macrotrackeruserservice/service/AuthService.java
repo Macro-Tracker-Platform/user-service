@@ -22,6 +22,7 @@ import com.olehprukhnytskyi.macrotrackeruserservice.model.User;
 import com.olehprukhnytskyi.macrotrackeruserservice.model.UserProfile;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.UserRepository;
 import com.olehprukhnytskyi.macrotrackeruserservice.util.JwtUtil;
+import com.olehprukhnytskyi.macrotrackeruserservice.util.WaterGoalMode;
 import com.olehprukhnytskyi.model.OutboxEvent;
 import com.olehprukhnytskyi.repository.jpa.OutboxRepository;
 import com.olehprukhnytskyi.util.AuthProvider;
@@ -110,6 +111,7 @@ public class AuthService {
         GoalResponseDto goalResponseDto = CalorieCalculatorService
                 .calculateGoal(dto.getUserDetails());
         userProfileMapper.updateUserProfileFromDto(goalResponseDto, profile);
+        profile.setWaterGoalMode(WaterGoalMode.AUTO);
         newUser.setProfile(profile);
         newUser.setAuthProviders(new HashSet<>(Collections.singleton(AuthProvider.LOCAL)));
 
@@ -167,6 +169,7 @@ public class AuthService {
             GoalResponseDto goalResponseDto = CalorieCalculatorService
                     .calculateGoal(tokenDto.getUserDetails());
             userProfileMapper.updateUserProfileFromDto(goalResponseDto, profile);
+            profile.setWaterGoalMode(WaterGoalMode.AUTO);
 
             user.setProfile(profile);
             user = userRepository.save(user);

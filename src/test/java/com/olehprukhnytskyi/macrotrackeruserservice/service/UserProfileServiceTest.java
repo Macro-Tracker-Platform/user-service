@@ -15,6 +15,7 @@ import com.olehprukhnytskyi.exception.NotFoundException;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.GoalResponseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.UpdateGoalRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.UpdateUserDetailsRequestDto;
+import com.olehprukhnytskyi.macrotrackeruserservice.dto.UpdateWaterGoalRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.UserDetailsRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.UserDetailsResponseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.mapper.UserProfileMapper;
@@ -22,6 +23,7 @@ import com.olehprukhnytskyi.macrotrackeruserservice.model.UserProfile;
 import com.olehprukhnytskyi.macrotrackeruserservice.projection.UserDetailsProjection;
 import com.olehprukhnytskyi.macrotrackeruserservice.projection.UserGoalProjection;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.UserProfileRepository;
+import com.olehprukhnytskyi.macrotrackeruserservice.util.WaterGoalMode;
 import com.olehprukhnytskyi.util.ActivityLevel;
 import com.olehprukhnytskyi.util.BodyType;
 import com.olehprukhnytskyi.util.Gender;
@@ -97,6 +99,7 @@ class UserProfileServiceTest {
                 .fat(10)
                 .protein(20)
                 .waterGoalMl(2450)
+                .waterGoalMode(WaterGoalMode.AUTO)
                 .build();
 
         when(userProfileRepository.findGoalsByUserId(userId))
@@ -153,7 +156,7 @@ class UserProfileServiceTest {
     void updateUserDetails_whenRecalculateTrue_shouldUpdateGoalAndProfile() {
         // Given
         Long userId = 1L;
-        UpdateUserDetailsRequestDto requestDto = UpdateUserDetailsRequestDto.builder()
+        final UpdateUserDetailsRequestDto requestDto = UpdateUserDetailsRequestDto.builder()
                 .age(25)
                 .weight(70)
                 .height(180)
@@ -164,6 +167,8 @@ class UserProfileServiceTest {
                 .build();
 
         UserProfile profile = new UserProfile();
+        profile.setWaterGoalMl(2800);
+        profile.setWaterGoalMode(WaterGoalMode.AUTO);
         UserDetailsResponseDto expectedResponse = UserDetailsResponseDto.builder()
                 .age(25)
                 .weight(70)
@@ -183,7 +188,8 @@ class UserProfileServiceTest {
 
         when(userProfileRepository.findById(userId)).thenReturn(Optional.of(profile));
         when(profileMapper.toUserDetailsResponse(profile)).thenReturn(expectedResponse);
-        when(profileMapper.toUserDetailsRequest(any())).thenReturn(detailsRequestDto);
+        when(profileMapper.toUserDetailsRequest(any(UpdateUserDetailsRequestDto.class)))
+                .thenReturn(detailsRequestDto);
 
         // When
         UserDetailsResponseDto result = userProfileService.updateUserDetails(requestDto, userId);
@@ -193,8 +199,49 @@ class UserProfileServiceTest {
                 .updateUserGoalFromDto(eq(profile), any(GoalResponseDto.class));
         verify(profileMapper, times(1)).updateUserDetailsFromDto(profile, requestDto);
         verify(userProfileRepository, times(1)).save(profile);
+        assertThat(profile.getWaterGoalMl()).isEqualTo(2450);
+        assertThat(profile.getWaterGoalMode()).isEqualTo(WaterGoalMode.AUTO);
 
         assertThat(result).isEqualTo(expectedResponse);
+    }
+
+    @Test
+    @DisplayName("When water goal is custom, profile recalculation should preserve it")
+    void updateUserDetails_whenWaterGoalIsCustom_shouldPreserveWaterGoal() {
+        // Given
+        Long userId = 1L;
+        final UpdateUserDetailsRequestDto requestDto = UpdateUserDetailsRequestDto.builder()
+                .age(25)
+                .weight(70)
+                .height(180)
+                .gender(Gender.MALE)
+                .activityLevel(ActivityLevel.EXTRA_ACTIVE)
+                .goal(Goal.LOSE)
+                .recalculate(true)
+                .build();
+        final UserDetailsRequestDto detailsRequestDto = UserDetailsRequestDto.builder()
+                .age(25)
+                .weight(70)
+                .height(180)
+                .gender(Gender.MALE)
+                .activityLevel(ActivityLevel.EXTRA_ACTIVE)
+                .goal(Goal.LOSE)
+                .bodyType(BodyType.NORMAL)
+                .build();
+        UserProfile profile = new UserProfile();
+        profile.setWaterGoalMl(3333);
+        profile.setWaterGoalMode(WaterGoalMode.CUSTOM);
+
+        when(userProfileRepository.findById(userId)).thenReturn(Optional.of(profile));
+        when(profileMapper.toUserDetailsRequest(requestDto)).thenReturn(detailsRequestDto);
+        when(profileMapper.toUserDetailsResponse(profile)).thenReturn(new UserDetailsResponseDto());
+
+        // When
+        userProfileService.updateUserDetails(requestDto, userId);
+
+        // Then
+        assertThat(profile.getWaterGoalMl()).isEqualTo(3333);
+        assertThat(profile.getWaterGoalMode()).isEqualTo(WaterGoalMode.CUSTOM);
     }
 
     @Test
@@ -236,14 +283,16 @@ class UserProfileServiceTest {
         Long userId = 1L;
         UpdateGoalRequestDto requestDto = new UpdateGoalRequestDto();
         requestDto.setCalories(1000);
-        requestDto.setWaterGoalMl(2400);
 
         UserProfile profile = new UserProfile();
         profile.setId(userId);
+        profile.setWaterGoalMl(2400);
+        profile.setWaterGoalMode(WaterGoalMode.CUSTOM);
 
         GoalResponseDto expectedResponse = new GoalResponseDto();
         expectedResponse.setCalories(1000);
         expectedResponse.setWaterGoalMl(2400);
+        expectedResponse.setWaterGoalMode(WaterGoalMode.CUSTOM);
 
         when(userProfileRepository.findById(userId)).thenReturn(Optional.of(profile));
         when(profileMapper.toUserGoalResponse(requestDto)).thenReturn(expectedResponse);
@@ -255,6 +304,68 @@ class UserProfileServiceTest {
         // Then
         assertThat(result).isEqualTo(expectedResponse);
         verify(profileMapper).updateUserGoalFromDto(eq(profile), eq(expectedResponse));
+        verify(userProfileRepository).save(profile);
+    }
+
+    @Test
+    @DisplayName("When custom water goal is updated, should set custom mode")
+    void updateWaterGoal_whenValidRequest_shouldSetCustomMode() {
+        // Given
+        Long userId = 1L;
+        UserProfile profile = new UserProfile();
+        UpdateWaterGoalRequestDto requestDto = new UpdateWaterGoalRequestDto();
+        requestDto.setWaterGoalMl(3333);
+        GoalResponseDto expected = GoalResponseDto.builder()
+                .waterGoalMl(3333)
+                .waterGoalMode(WaterGoalMode.CUSTOM)
+                .build();
+
+        when(userProfileRepository.findById(userId)).thenReturn(Optional.of(profile));
+        when(profileMapper.toUserGoalResponse(profile)).thenReturn(expected);
+
+        // When
+        GoalResponseDto result = userProfileService.updateWaterGoal(requestDto, userId);
+
+        // Then
+        assertThat(result).isEqualTo(expected);
+        assertThat(profile.getWaterGoalMl()).isEqualTo(3333);
+        assertThat(profile.getWaterGoalMode()).isEqualTo(WaterGoalMode.CUSTOM);
+        verify(userProfileRepository).save(profile);
+    }
+
+    @Test
+    @DisplayName("When custom water goal is reset, should calculate automatic goal")
+    void resetWaterGoal_whenCalled_shouldCalculateAutomaticGoal() {
+        // Given
+        Long userId = 1L;
+        UserProfile profile = new UserProfile();
+        profile.setWaterGoalMl(3333);
+        profile.setWaterGoalMode(WaterGoalMode.CUSTOM);
+        UserDetailsRequestDto details = UserDetailsRequestDto.builder()
+                .age(30)
+                .weight(71)
+                .height(180)
+                .gender(Gender.MALE)
+                .activityLevel(ActivityLevel.MODERATELY_ACTIVE)
+                .goal(Goal.MAINTAIN)
+                .bodyType(BodyType.NORMAL)
+                .build();
+        GoalResponseDto expected = GoalResponseDto.builder()
+                .waterGoalMl(2500)
+                .waterGoalMode(WaterGoalMode.AUTO)
+                .build();
+
+        when(userProfileRepository.findById(userId)).thenReturn(Optional.of(profile));
+        when(profileMapper.toUserDetailsRequest(profile)).thenReturn(details);
+        when(profileMapper.toUserGoalResponse(profile)).thenReturn(expected);
+
+        // When
+        GoalResponseDto result = userProfileService.resetWaterGoal(userId);
+
+        // Then
+        assertThat(result).isEqualTo(expected);
+        assertThat(profile.getWaterGoalMl()).isEqualTo(2500);
+        assertThat(profile.getWaterGoalMode()).isEqualTo(WaterGoalMode.AUTO);
         verify(userProfileRepository).save(profile);
     }
 

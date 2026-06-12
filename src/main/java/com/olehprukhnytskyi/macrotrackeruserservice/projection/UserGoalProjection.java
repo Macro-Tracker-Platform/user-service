@@ -1,5 +1,7 @@
 package com.olehprukhnytskyi.macrotrackeruserservice.projection;
 
+import com.olehprukhnytskyi.macrotrackeruserservice.util.WaterGoalMode;
+
 public interface UserGoalProjection {
     Integer getCalories();
 
@@ -10,4 +12,6 @@ public interface UserGoalProjection {
     Integer getProtein();
 
     Integer getWaterGoalMl();
+
+    WaterGoalMode getWaterGoalMode();
 }

@@ -112,7 +112,13 @@ public class CalorieCalculatorService {
         }
         int carbs = remainingCalories / CALORIES_PER_GRAM_CARBS;
         int waterGoalMl = calculateWaterGoal(data.getWeight());
-        return new GoalResponseDto(targetCalories, protein, fat, carbs, waterGoalMl);
+        return GoalResponseDto.builder()
+                .calories(targetCalories)
+                .protein(protein)
+                .fat(fat)
+                .carbohydrates(carbs)
+                .waterGoalMl(waterGoalMl)
+                .build();
     }
 
     private static int calculateWaterGoal(int weightKg) {

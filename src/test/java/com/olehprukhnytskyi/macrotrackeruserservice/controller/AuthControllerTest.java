@@ -27,6 +27,7 @@ import com.olehprukhnytskyi.macrotrackeruserservice.model.User;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.UserRepository;
 import com.olehprukhnytskyi.macrotrackeruserservice.service.SocialTokenVerificationService;
 import com.olehprukhnytskyi.macrotrackeruserservice.util.JwtUtil;
+import com.olehprukhnytskyi.macrotrackeruserservice.util.WaterGoalMode;
 import com.olehprukhnytskyi.util.ActivityLevel;
 import com.olehprukhnytskyi.util.AuthProvider;
 import com.olehprukhnytskyi.util.BodyType;
@@ -228,6 +229,7 @@ class AuthControllerTest {
 
         User registeredUser = userRepository.findByEmail("test@example.com").orElseThrow();
         assertEquals(2800, registeredUser.getProfile().getWaterGoalMl());
+        assertEquals(WaterGoalMode.AUTO, registeredUser.getProfile().getWaterGoalMode());
     }
 
     @Sql(scripts = "classpath:database/add-user-for-auth.sql",

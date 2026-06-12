@@ -10,6 +10,7 @@ import com.olehprukhnytskyi.macrotrackeruserservice.model.UserProfile;
 import com.olehprukhnytskyi.macrotrackeruserservice.projection.UserDetailsProjection;
 import com.olehprukhnytskyi.macrotrackeruserservice.projection.UserGoalProjection;
 import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
 import org.mapstruct.NullValuePropertyMappingStrategy;
 import org.mapstruct.ReportingPolicy;
@@ -29,6 +30,8 @@ public interface UserProfileMapper {
     void updateUserDetailsFromDto(@MappingTarget UserProfile entity,
                                   UpdateUserDetailsRequestDto dto);
 
+    @Mapping(target = "waterGoalMl", ignore = true)
+    @Mapping(target = "waterGoalMode", ignore = true)
     void updateUserGoalFromDto(@MappingTarget UserProfile entity,
                                GoalResponseDto dto);
 
@@ -39,4 +42,6 @@ public interface UserProfileMapper {
     GoalResponseDto toUserGoalResponse(UpdateGoalRequestDto dto);
 
     UserDetailsRequestDto toUserDetailsRequest(UpdateUserDetailsRequestDto dto);
+
+    UserDetailsRequestDto toUserDetailsRequest(UserProfile profile);
 }

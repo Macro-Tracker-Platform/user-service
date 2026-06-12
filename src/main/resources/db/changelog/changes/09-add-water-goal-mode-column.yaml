@@ -1,0 +1,14 @@
+databaseChangeLog:
+  - changeSet:
+      id: 1781265600000-2
+      author: codex
+      changes:
+        - addColumn:
+            tableName: user_profiles
+            columns:
+              - column:
+                  name: water_goal_mode
+                  type: VARCHAR(20)
+                  defaultValue: AUTO
+                  constraints:
+                    nullable: false

@@ -19,5 +19,6 @@ public interface UserMapper {
     @Mapping(target = "fat", ignore = true)
     @Mapping(target = "protein", ignore = true)
     @Mapping(target = "waterGoalMl", ignore = true)
+    @Mapping(target = "waterGoalMode", ignore = true)
     UserProfile toUserProfile(UserDetailsRequestDto dto, User user);
 }

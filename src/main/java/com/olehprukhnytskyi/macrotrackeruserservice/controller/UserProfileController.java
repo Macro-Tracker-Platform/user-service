@@ -3,6 +3,7 @@ package com.olehprukhnytskyi.macrotrackeruserservice.controller;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.GoalResponseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.UpdateGoalRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.UpdateUserDetailsRequestDto;
+import com.olehprukhnytskyi.macrotrackeruserservice.dto.UpdateWaterGoalRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.UserDetailsResponseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.service.UserProfileService;
 import com.olehprukhnytskyi.macrotrackeruserservice.service.UserService;
@@ -16,6 +17,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -48,7 +50,7 @@ public class UserProfileController {
 
     @Operation(
             summary = "Get user goals",
-            description = "Retrieve user nutrition goals (calories, protein, fat, carbs)"
+            description = "Retrieve user nutrition and water goals"
     )
     @GetMapping("/goal")
     public ResponseEntity<GoalResponseDto> getUserGoal(
@@ -99,5 +101,28 @@ public class UserProfileController {
         GoalResponseDto updatedGoal = userProfileService.updateUserGoal(requestDto, userId);
         log.info("Updated nutrition goals for userId={}", userId);
         return ResponseEntity.ok(updatedGoal);
+    }
+
+    @Operation(
+            summary = "Set custom water goal",
+            description = "Set a custom daily water target that profile recalculation preserves"
+    )
+    @PutMapping("/goal/water")
+    public ResponseEntity<GoalResponseDto> updateWaterGoal(
+            @RequestHeader(CustomHeaders.X_USER_ID) Long userId,
+            @RequestBody @Valid UpdateWaterGoalRequestDto requestDto) {
+        log.info("Updating custom water goal for userId={}", userId);
+        return ResponseEntity.ok(userProfileService.updateWaterGoal(requestDto, userId));
+    }
+
+    @Operation(
+            summary = "Reset water goal",
+            description = "Return to an automatically calculated daily water target"
+    )
+    @DeleteMapping("/goal/water")
+    public ResponseEntity<GoalResponseDto> resetWaterGoal(
+            @RequestHeader(CustomHeaders.X_USER_ID) Long userId) {
+        log.info("Resetting water goal for userId={}", userId);
+        return ResponseEntity.ok(userProfileService.resetWaterGoal(userId));
     }
 }

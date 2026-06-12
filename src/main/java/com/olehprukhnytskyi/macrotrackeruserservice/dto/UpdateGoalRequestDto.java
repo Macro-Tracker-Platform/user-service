@@ -22,8 +22,4 @@ public class UpdateGoalRequestDto {
     @Schema(description = "Daily carbohydrates target in grams", example = "250", minimum = "0")
     @Min(value = 0, message = "Carbohydrates cannot be negative")
     private Integer carbohydrates;
-
-    @Schema(description = "Daily water target in milliliters", example = "2500", minimum = "1")
-    @Min(value = 1, message = "Water goal must be a positive number")
-    private Integer waterGoalMl;
 }

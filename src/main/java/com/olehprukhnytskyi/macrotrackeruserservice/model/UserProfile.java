@@ -1,5 +1,6 @@
 package com.olehprukhnytskyi.macrotrackeruserservice.model;
 
+import com.olehprukhnytskyi.macrotrackeruserservice.util.WaterGoalMode;
 import com.olehprukhnytskyi.util.ActivityLevel;
 import com.olehprukhnytskyi.util.BodyType;
 import com.olehprukhnytskyi.util.Gender;
@@ -70,4 +71,8 @@ public class UserProfile {
 
     @Column(nullable = false)
     private Integer waterGoalMl;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private WaterGoalMode waterGoalMode;
 }

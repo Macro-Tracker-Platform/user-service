@@ -1,5 +1,6 @@
 package com.olehprukhnytskyi.macrotrackeruserservice.dto;
 
+import com.olehprukhnytskyi.macrotrackeruserservice.util.WaterGoalMode;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -26,4 +27,7 @@ public class GoalResponseDto {
 
     @Schema(description = "Daily water target in milliliters", example = "2500")
     private int waterGoalMl;
+
+    @Schema(description = "Whether the water goal is calculated or customized")
+    private WaterGoalMode waterGoalMode;
 }
