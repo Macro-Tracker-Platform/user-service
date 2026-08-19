@@ -19,3 +19,5 @@ databaseChangeLog:
       file: db/changelog/changes/08-add-water-goal-column.yaml
   - include:
       file: db/changelog/changes/09-add-water-goal-mode-column.yaml
+  - include:
+      file: db/changelog/changes/10-create-subscriptions.yaml
