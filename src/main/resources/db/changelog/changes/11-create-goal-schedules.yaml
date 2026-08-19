@@ -1,0 +1,63 @@
+databaseChangeLog:
+  - changeSet:
+      id: 11-create-goal-schedules
+      author: codex
+      changes:
+        - createTable:
+            tableName: goal_schedules
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: user_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: day_of_week
+                  type: VARCHAR(16)
+                  constraints:
+                    nullable: false
+              - column: { name: calories, type: INT, constraints: { nullable: false } }
+              - column: { name: protein, type: INT, constraints: { nullable: false } }
+              - column: { name: fat, type: INT, constraints: { nullable: false } }
+              - column: { name: carbohydrates, type: INT, constraints: { nullable: false } }
+              - column: { name: effective_from, type: DATE, constraints: { nullable: false } }
+              - column: { name: effective_to, type: DATE }
+        - createIndex:
+            tableName: goal_schedules
+            indexName: idx_goal_schedule_resolution
+            columns:
+              - column: { name: user_id }
+              - column: { name: day_of_week }
+              - column: { name: effective_from }
+              - column: { name: effective_to }
+        - createTable:
+            tableName: goal_history
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column: { name: user_id, type: BIGINT, constraints: { nullable: false } }
+              - column: { name: calories, type: INT, constraints: { nullable: false } }
+              - column: { name: protein, type: INT, constraints: { nullable: false } }
+              - column: { name: fat, type: INT, constraints: { nullable: false } }
+              - column: { name: carbohydrates, type: INT, constraints: { nullable: false } }
+              - column: { name: effective_from, type: DATE, constraints: { nullable: false } }
+              - column: { name: effective_to, type: DATE }
+        - createIndex:
+            tableName: goal_history
+            indexName: idx_goal_history_resolution
+            columns:
+              - column: { name: user_id }
+              - column: { name: effective_from }
+              - column: { name: effective_to }

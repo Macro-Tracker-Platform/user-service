@@ -27,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserProfileService {
     private final UserProfileRepository userProfileRepository;
     private final UserProfileMapper profileMapper;
+    private final GoalScheduleService goalScheduleService;
 
     @Cacheable(value = "userDetails", key = "#userId")
     public UserDetailsResponseDto findDetailsByUserId(Long userId) {
@@ -79,9 +80,19 @@ public class UserProfileService {
     @Transactional
     public GoalResponseDto updateUserGoal(UpdateGoalRequestDto requestDto, Long userId) {
         UserProfile profile = findProfile(userId, "goal update");
+        if (goalScheduleService != null) {
+            goalScheduleService.snapshotDefaultBeforeChange(userId);
+        }
         profileMapper.updateUserGoalFromDto(profile, profileMapper
                 .toUserGoalResponse(requestDto));
+        if (goalScheduleService != null) {
+            goalScheduleService.validateMacros(profile.getCalories(), profile.getProtein(),
+                    profile.getFat(), profile.getCarbohydrates());
+        }
         userProfileRepository.save(profile);
+        if (goalScheduleService != null) {
+            goalScheduleService.snapshotDefaultAfterChange(userId);
+        }
         log.info("User goal updated for userId={}", userId);
         return profileMapper.toUserGoalResponse(profile);
     }

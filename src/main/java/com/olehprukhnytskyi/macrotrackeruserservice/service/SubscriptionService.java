@@ -113,6 +113,7 @@ public class SubscriptionService {
                         .advancedInsights(hasProFeatures)
                         .futurePlanning(hasProFeatures)
                         .weekdayGoals(hasProFeatures)
+                        .adaptiveCalories(hasProFeatures)
                         .build())
                 .build();
     }

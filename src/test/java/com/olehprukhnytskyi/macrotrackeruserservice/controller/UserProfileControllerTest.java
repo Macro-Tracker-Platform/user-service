@@ -317,7 +317,7 @@ class UserProfileControllerTest extends AbstractRedisTest {
         String expected = objectMapper.writeValueAsString(expectedResponse);
         assertEquals(expected, mvcResult.getResponse().getContentAsString());
 
-        verify(userProfileRepository, times(1)).findById(userId);
+        verify(userProfileRepository, times(3)).findById(userId);
         verify(userProfileRepository, times(1)).save(any());
     }
 
