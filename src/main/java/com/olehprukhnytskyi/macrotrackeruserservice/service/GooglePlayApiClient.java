@@ -7,9 +7,14 @@ import java.io.IOException;
 import java.time.Instant;
 import java.util.Collections;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
+import org.springframework.web.server.ResponseStatusException;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class GooglePlayApiClient {
@@ -21,15 +26,20 @@ public class GooglePlayApiClient {
     private final GooglePlayProperties properties;
 
     public GooglePlaySubscriptionSnapshot getSubscription(String purchaseToken) {
-        JsonNode response = client().get()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/androidpublisher/v3/applications/{packageName}"
-                                + "/purchases/subscriptionsv2/tokens/{token}")
-                        .build(properties.getPackageName(), purchaseToken))
-                .header("Authorization", "Bearer " + accessToken())
-                .retrieve()
-                .bodyToMono(JsonNode.class)
-                .block();
+        JsonNode response;
+        try {
+            response = client().get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/androidpublisher/v3/applications/{packageName}"
+                                    + "/purchases/subscriptionsv2/tokens/{token}")
+                            .build(properties.getPackageName(), purchaseToken))
+                    .header("Authorization", "Bearer " + accessToken())
+                    .retrieve()
+                    .bodyToMono(JsonNode.class)
+                    .block();
+        } catch (WebClientResponseException exception) {
+            throw googlePlayFailure("subscriptions.get", exception);
+        }
         if (response == null || response.path("lineItems").isEmpty()) {
             throw new IllegalStateException("Google Play returned no subscription line items");
         }
@@ -49,16 +59,21 @@ public class GooglePlayApiClient {
     }
 
     public void acknowledge(String productId, String purchaseToken) {
-        client().post()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/androidpublisher/v3/applications/{packageName}"
-                                + "/purchases/subscriptions/{productId}/tokens/{token}:acknowledge")
-                        .build(properties.getPackageName(), productId, purchaseToken))
-                .header("Authorization", "Bearer " + accessToken())
-                .bodyValue(Collections.emptyMap())
-                .retrieve()
-                .toBodilessEntity()
-                .block();
+        try {
+            client().post()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/androidpublisher/v3/applications/{packageName}"
+                                    + "/purchases/subscriptions/{productId}/tokens/"
+                                    + "{token}:acknowledge")
+                            .build(properties.getPackageName(), productId, purchaseToken))
+                    .header("Authorization", "Bearer " + accessToken())
+                    .bodyValue(Collections.emptyMap())
+                    .retrieve()
+                    .toBodilessEntity()
+                    .block();
+        } catch (WebClientResponseException exception) {
+            throw googlePlayFailure("subscriptions.acknowledge", exception);
+        }
     }
 
     private WebClient client() {
@@ -78,6 +93,36 @@ public class GooglePlayApiClient {
             throw new IllegalStateException(
                     "Could not obtain Google Play API credentials", exception);
         }
+    }
+
+    private ResponseStatusException googlePlayFailure(
+            String operation,
+            WebClientResponseException exception
+    ) {
+        int status = exception.getStatusCode().value();
+        String response = exception.getResponseBodyAsString()
+                .replace('\n', ' ')
+                .replace('\r', ' ');
+        if (response.length() > 500) {
+            response = response.substring(0, 500);
+        }
+        log.error("Google Play {} failed with status {}: {}", operation, status, response);
+        if (status == 400 || status == 404) {
+            return new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Google Play could not find this purchase"
+            );
+        }
+        if (status == 401 || status == 403) {
+            return new ResponseStatusException(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "Google Play API credentials do not have purchase access"
+            );
+        }
+        return new ResponseStatusException(
+                HttpStatus.BAD_GATEWAY,
+                "Google Play purchase verification is unavailable"
+        );
     }
 
     private Instant parseInstant(JsonNode node) {
