@@ -111,9 +111,11 @@ public class SubscriptionService {
                                 .resetAt(resetAt)
                                 .build())
                         .advancedInsights(hasProFeatures)
-                        .futurePlanning(hasProFeatures)
-                        .weekdayGoals(hasProFeatures)
-                        .adaptiveCalories(hasProFeatures)
+                        // These features did not exist in legacy clients. Keeping them Pro-only
+                        // also makes service-to-service entitlement checks unambiguous.
+                        .futurePlanning(pro)
+                        .weekdayGoals(pro)
+                        .adaptiveCalories(pro)
                         .build())
                 .build();
     }

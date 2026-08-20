@@ -71,6 +71,9 @@ class SubscriptionServiceEntitlementTest {
         assertThat(entitlement.getFeatures().getNutritionLabelScans().getLimit())
                 .isEqualTo(60);
         assertThat(entitlement.getFeatures().isAdvancedInsights()).isTrue();
+        assertThat(entitlement.getFeatures().isFuturePlanning()).isFalse();
+        assertThat(entitlement.getFeatures().isWeekdayGoals()).isFalse();
+        assertThat(entitlement.getFeatures().isAdaptiveCalories()).isFalse();
     }
 
     @Test
