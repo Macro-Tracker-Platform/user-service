@@ -37,6 +37,20 @@ public class CalorieCalculatorService {
         return calculateMacros(data, effectiveBodyType, effectiveGoal, targetCalories);
     }
 
+    static int calculateCalorieFloor(UserDetailsRequestDto data) {
+        int bmrFloor = calculateBmrCalories(data);
+        int absoluteFloor = data.getGender() == Gender.MALE
+                ? MIN_CALORIES_MALE : MIN_CALORIES_FEMALE;
+        return Math.max(bmrFloor, absoluteFloor);
+    }
+
+    static int calculateBmrCalories(UserDetailsRequestDto data) {
+        double heightMeters = data.getHeight() / 100.0;
+        double bmi = data.getWeight() / (heightMeters * heightMeters);
+        BodyType effectiveBodyType = resolveBodyType(data.getBodyType(), bmi);
+        return (int) Math.ceil(calculateBmr(data, effectiveBodyType, bmi));
+    }
+
     private static BodyType resolveBodyType(BodyType originalType, double bmi) {
         if (bmi > 30 && originalType != BodyType.HIGH_BODY_FAT) {
             return BodyType.HIGH_BODY_FAT;
