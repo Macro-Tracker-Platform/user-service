@@ -90,6 +90,17 @@ class AdaptiveCalorieCalculatorServiceTest {
 
         assertThat(result.getCalorieDelta()).isEqualTo(50);
         assertThat(result.getStatus()).isEqualTo("AGGRESSIVE_CHANGE");
+        assertThat(result.getExplanation()).contains("Adjust calories by 50");
+    }
+
+    @Test
+    void aggressiveFirstReportHoldsWithoutSuggestingAdjustment() {
+        AdaptiveCalorieRecommendationDto result = service.evaluate(
+                USER_ID, request(8, -2.00));
+
+        assertThat(result.getCalorieDelta()).isZero();
+        assertThat(result.getStatus()).isEqualTo("AGGRESSIVE_CHANGE");
+        assertThat(result.getExplanation()).contains("Keep calories unchanged");
     }
 
     @Test
@@ -201,6 +212,41 @@ class AdaptiveCalorieCalculatorServiceTest {
         assertThat(result.isEligible()).isFalse();
         assertThat(result.getStatus()).isEqualTo("BUILDING_DATA");
         assertThat(result.getBlockers()).anyMatch(value -> value.contains("latest gap"));
+    }
+
+    @Test
+    void reachedLossGoalRecommendsMaintenanceBeforeNormalEligibilityChecks() {
+        profile.setGoalWeight(80);
+        AdaptiveCalorieEvaluationRequestDto request = request(8, -0.10);
+        request.setSummaries(List.of());
+
+        AdaptiveCalorieRecommendationDto result = service.evaluate(USER_ID, request);
+
+        assertThat(result.isEligible()).isTrue();
+        assertThat(result.getStatus()).isEqualTo("GOAL_REACHED");
+        assertThat(result.getTargetKgPerWeek()).isZero();
+        assertThat(result.getEstimatedWeeksToGoal()).isZero();
+        assertThat(result.getSuggestedCalories()).isGreaterThan(profile.getCalories());
+        assertThat(result.getEstimatedMaintenanceCalories())
+                .isEqualTo(result.getSuggestedCalories());
+        assertThat(result.getExplanation()).contains("reached your target weight");
+    }
+
+    @Test
+    void reachedGainGoalAlsoRecommendsMaintenance() {
+        profile = profile(Goal.GAIN, "0.40", 2600);
+        profile.setGoalWeight(80);
+        when(userProfileRepository.findById(USER_ID)).thenReturn(Optional.of(profile));
+        stubCalorieFloorProfile();
+
+        AdaptiveCalorieRecommendationDto result = service.evaluate(
+                USER_ID, request(8, 0.10));
+
+        assertThat(result.isEligible()).isTrue();
+        assertThat(result.getStatus()).isEqualTo("GOAL_REACHED");
+        assertThat(result.getTargetKgPerWeek()).isZero();
+        assertThat(result.getEstimatedWeeksToGoal()).isZero();
+        assertThat(result.getSuggestedCalories()).isNotNull();
     }
 
     private AdaptiveCalorieEvaluationRequestDto request(int days, double weeklyTrend) {

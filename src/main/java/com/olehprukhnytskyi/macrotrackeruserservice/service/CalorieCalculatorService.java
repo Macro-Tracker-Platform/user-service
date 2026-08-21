@@ -51,6 +51,14 @@ public class CalorieCalculatorService {
         return (int) Math.ceil(calculateBmr(data, effectiveBodyType, bmi));
     }
 
+    static int calculateMaintenanceCalories(UserDetailsRequestDto data) {
+        double heightMeters = data.getHeight() / 100.0;
+        double bmi = data.getWeight() / (heightMeters * heightMeters);
+        BodyType effectiveBodyType = resolveBodyType(data.getBodyType(), bmi);
+        double bmr = calculateBmr(data, effectiveBodyType, bmi);
+        return (int) Math.round(bmr * getActivityMultiplier(data.getActivityLevel(), bmi));
+    }
+
     private static BodyType resolveBodyType(BodyType originalType, double bmi) {
         if (bmi > 30 && originalType != BodyType.HIGH_BODY_FAT) {
             return BodyType.HIGH_BODY_FAT;

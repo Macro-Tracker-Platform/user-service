@@ -64,7 +64,7 @@ public class AdaptiveCalorieCalculatorService {
         int spanDays = weightSpanDays(weights);
         Optional<LocalDate> lastGoalChange = goalScheduleService.lastGoalChange(userId);
         BigDecimal trend = regressionTrend(weights);
-        BigDecimal currentWeight = currentWeight(profile, weights);
+        BigDecimal currentWeight = currentWeight(profile, rawWeights);
         BigDecimal targetTrend = WeeklyWeightChangePolicy.resolve(
                 profile.getGoal(), profile.getWeeklyWeightChangeKg());
         LocalDate nextCheckIn = nextCheckIn(lastGoalChange, today);
@@ -96,6 +96,29 @@ public class AdaptiveCalorieCalculatorService {
         List<String> blockers = buildBlockers(
                 weights, spanDays, loggedDays, today, lastGoalChange);
         Integer maintenance = estimatedMaintenance(calories, trend, currentWeight);
+        int calorieFloor = CalorieCalculatorService.calculateCalorieFloor(
+                calorieFloorProfile);
+        if (hasReachedGoal(profile, currentWeight)) {
+            int suggestedCalories = maintenance == null
+                    ? CalorieCalculatorService.calculateMaintenanceCalories(
+                            calorieFloorProfile)
+                    : Math.max(maintenance, calorieFloor);
+            return base(profile, loggedDays, weights.size(), spanDays, trend)
+                    .eligible(true)
+                    .suggestedCalories(suggestedCalories)
+                    .calorieDelta(suggestedCalories - profile.getCalories())
+                    .targetKgPerWeek(BigDecimal.ZERO.setScale(2))
+                    .estimatedMaintenanceCalories(suggestedCalories)
+                    .estimatedWeeksToGoal(0)
+                    .estimatedGoalDate(today)
+                    .nextCheckInDate(nextCheckIn)
+                    .status("GOAL_REACHED")
+                    .explanation("You have reached your target weight. Calories are now "
+                            + "set to maintenance. Update your goal in profile settings "
+                            + "to maintain your weight or choose a new target.")
+                    .blockers(List.of("Update your goal in profile settings"))
+                    .build();
+        }
         Integer weeksToGoal = estimatedWeeksToGoal(
                 profile, currentWeight, targetTrend);
         LocalDate goalDate = weeksToGoal == null ? null : today.plusWeeks(weeksToGoal);
@@ -121,12 +144,11 @@ public class AdaptiveCalorieCalculatorService {
                 ? CONSERVATIVE_ADJUSTMENT : STANDARD_ADJUSTMENT;
         Decision decision = decide(profile.getGoal(), trend, targetTrend,
                 currentWeight, adjustmentStep, conservative);
-        int calorieFloor = CalorieCalculatorService.calculateCalorieFloor(
-                calorieFloorProfile);
         if (decision.delta() < 0
                 && profile.getCalories() + decision.delta() < calorieFloor) {
             decision = new Decision(0, "BMR_FLOOR",
-                    "Calories are already at your safe BMR floor, so the plan is held.");
+                    "Calories stay unchanged because a further reduction would put the "
+                            + "target below estimated BMR.");
         }
         int suggestedCalories = profile.getCalories() + decision.delta();
         return base(profile, loggedDays, weights.size(), spanDays, trend)
@@ -193,8 +215,8 @@ public class AdaptiveCalorieCalculatorService {
                 / currentWeight.doubleValue() * 100;
         if (Math.abs(observedPercent) > ANOMALOUS_CHANGE_PERCENT) {
             return new Decision(0, "ANOMALOUS_CHANGE_HOLD",
-                    "Rapid weight change is often water or glycogen. Keep the current "
-                            + "plan so metabolism and recovery are not compromised.");
+                    "The recent weight change is unusually sharp and may reflect water "
+                            + "or glycogen. Keep calories unchanged and reassess next week.");
         }
         if (goal == null || goal == Goal.MAINTAIN) {
             return decideMaintenance(observedPercent, adjustmentStep);
@@ -204,9 +226,12 @@ public class AdaptiveCalorieCalculatorService {
         double progressPercent = observedPercent * direction;
         if (progressPercent >= AGGRESSIVE_CHANGE_PERCENT) {
             int delta = conservative ? 0 : -direction * CONSERVATIVE_ADJUSTMENT;
-            return new Decision(delta, "AGGRESSIVE_CHANGE",
-                    "Weight is changing very quickly. Hold the plan for now; if fatigue "
-                            + "or poor recovery appears, use the small 50 kcal adjustment.");
+            String explanation = delta == 0
+                    ? "Weight is changing faster than the selected target. Keep calories "
+                            + "unchanged and reassess next week."
+                    : "Weight is changing faster than the selected target. Adjust calories "
+                            + "by 50 kcal/day and reassess next week.";
+            return new Decision(delta, "AGGRESSIVE_CHANGE", explanation);
         }
 
         double targetPercent = Math.abs(targetTrend.doubleValue())
@@ -350,6 +375,17 @@ public class AdaptiveCalorieCalculatorService {
     private BigDecimal currentWeight(UserProfile profile, List<WeightSampleDto> weights) {
         return weights.isEmpty() ? BigDecimal.valueOf(profile.getWeight())
                 : weights.getLast().getWeight();
+    }
+
+    private boolean hasReachedGoal(UserProfile profile, BigDecimal currentWeight) {
+        if (profile.getGoal() == null || profile.getGoalWeight() == null) {
+            return false;
+        }
+        BigDecimal goalWeight = BigDecimal.valueOf(profile.getGoalWeight());
+        return profile.getGoal() == Goal.LOSE
+                && currentWeight.compareTo(goalWeight) <= 0
+                || profile.getGoal() == Goal.GAIN
+                && currentWeight.compareTo(goalWeight) >= 0;
     }
 
     private Integer estimatedMaintenance(Map<LocalDate, BigDecimal> calories,
