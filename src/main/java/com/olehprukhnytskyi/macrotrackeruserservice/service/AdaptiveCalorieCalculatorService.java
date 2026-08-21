@@ -39,6 +39,7 @@ public class AdaptiveCalorieCalculatorService {
     private static final int ABSOLUTE_MIN_COMPLETE_DAY_CALORIES = 800;
     private static final int MAX_LOGGED_CALORIES = 6000;
     private static final int MAX_RECENT_WEIGHT_GAP_DAYS = 7;
+    private static final double EMA_ALPHA = 0.15;
     private static final double BMR_COMPLETE_DAY_RATIO = 0.5;
     private static final double MAX_ADJACENT_WEIGHT_CHANGE_KG = 3.0;
     private static final double ANOMALOUS_CHANGE_PERCENT = 1.5;
@@ -58,7 +59,8 @@ public class AdaptiveCalorieCalculatorService {
                         UserErrorCode.USER_PROFILE_NOT_FOUND, "Profile not found"));
         LocalDate today = LocalDate.now();
         LocalDate cutoff = today.minusDays(ANALYSIS_DAYS - 1L);
-        List<WeightSampleDto> weights = normalizedWeights(request, cutoff, today);
+        List<WeightSampleDto> rawWeights = normalizedWeights(request, cutoff, today);
+        List<WeightSampleDto> weights = smoothWeightsEma(rawWeights);
         int spanDays = weightSpanDays(weights);
         Optional<LocalDate> lastGoalChange = goalScheduleService.lastGoalChange(userId);
         BigDecimal trend = regressionTrend(weights);
@@ -249,6 +251,32 @@ public class AdaptiveCalorieCalculatorService {
                 .map(entry -> WeightSampleDto.builder()
                         .date(entry.getKey()).weight(entry.getValue()).build())
                 .toList();
+    }
+
+    private List<WeightSampleDto> smoothWeightsEma(List<WeightSampleDto> rawWeights) {
+        if (rawWeights == null || rawWeights.size() < 2) {
+            return rawWeights;
+        }
+        List<WeightSampleDto> smoothed = new ArrayList<>();
+        WeightSampleDto first = rawWeights.getFirst();
+        double currentEma = first.getWeight().doubleValue();
+        smoothed.add(first);
+        for (int i = 1; i < rawWeights.size(); i++) {
+            WeightSampleDto current = rawWeights.get(i);
+            WeightSampleDto previous = rawWeights.get(i - 1);
+
+            long daysBetween = ChronoUnit.DAYS.between(previous.getDate(), current.getDate());
+            double effectiveAlpha = 1.0 - Math.pow(1.0 - EMA_ALPHA, daysBetween);
+
+            double weight = current.getWeight().doubleValue();
+            currentEma = (weight * effectiveAlpha) + (currentEma * (1.0 - effectiveAlpha));
+
+            smoothed.add(WeightSampleDto.builder()
+                    .date(current.getDate())
+                    .weight(BigDecimal.valueOf(currentEma).setScale(2, RoundingMode.HALF_UP))
+                    .build());
+        }
+        return smoothed;
     }
 
     private Map<LocalDate, BigDecimal> normalizedCalories(

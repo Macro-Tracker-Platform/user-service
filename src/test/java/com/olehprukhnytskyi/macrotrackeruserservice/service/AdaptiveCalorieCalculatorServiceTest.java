@@ -61,7 +61,7 @@ class AdaptiveCalorieCalculatorServiceTest {
         assertThat(result.isEligible()).isTrue();
         assertThat(result.getCalorieDelta()).isEqualTo(-100);
         assertThat(result.getStatus()).isEqualTo("ADJUSTMENT_RECOMMENDED");
-        assertThat(result.getObservedKgPerWeek()).isEqualByComparingTo("-0.10");
+        assertThat(result.getObservedKgPerWeek()).isEqualByComparingTo("-0.07");
     }
 
     @Test
@@ -76,7 +76,7 @@ class AdaptiveCalorieCalculatorServiceTest {
     @Test
     void anomalousLossAboveOneAndHalfPercentHoldsCalories() {
         AdaptiveCalorieRecommendationDto result = service.evaluate(
-                USER_ID, request(15, -1.30));
+                USER_ID, request(15, -1.90));
 
         assertThat(result.getCalorieDelta()).isZero();
         assertThat(result.getStatus()).isEqualTo("ANOMALOUS_CHANGE_HOLD");
@@ -86,7 +86,7 @@ class AdaptiveCalorieCalculatorServiceTest {
     @Test
     void aggressiveLossUsesSmallPositiveAdjustment() {
         AdaptiveCalorieRecommendationDto result = service.evaluate(
-                USER_ID, request(15, -0.96));
+                USER_ID, request(15, -1.30));
 
         assertThat(result.getCalorieDelta()).isEqualTo(50);
         assertThat(result.getStatus()).isEqualTo("AGGRESSIVE_CHANGE");
@@ -104,12 +104,12 @@ class AdaptiveCalorieCalculatorServiceTest {
     @Test
     void trendUsesRegressionInsteadOfFirstToLastDifference() {
         AdaptiveCalorieEvaluationRequestDto request = request(15, 0);
-        request.getWeights().getFirst().setWeight(BigDecimal.valueOf(82));
-        request.getWeights().getLast().setWeight(BigDecimal.valueOf(78));
+        request.getWeights().getFirst().setWeight(BigDecimal.valueOf(81));
+        request.getWeights().getLast().setWeight(BigDecimal.valueOf(79));
 
         AdaptiveCalorieRecommendationDto result = service.evaluate(USER_ID, request);
 
-        assertThat(result.getObservedKgPerWeek()).isEqualByComparingTo("-0.70");
+        assertThat(result.getObservedKgPerWeek()).isEqualByComparingTo("-0.45");
         assertThat(result.getStatus()).isEqualTo("ON_TRACK");
     }
 
@@ -133,7 +133,7 @@ class AdaptiveCalorieCalculatorServiceTest {
         stubCalorieFloorProfile();
 
         AdaptiveCalorieRecommendationDto result = service.evaluate(
-                USER_ID, request(15, 0.96));
+                USER_ID, request(15, 1.30));
 
         assertThat(result.getCalorieDelta()).isEqualTo(-50);
         assertThat(result.getStatus()).isEqualTo("AGGRESSIVE_CHANGE");
