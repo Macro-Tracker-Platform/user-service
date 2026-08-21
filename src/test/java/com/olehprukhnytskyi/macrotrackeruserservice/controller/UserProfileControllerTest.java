@@ -33,6 +33,7 @@ import com.olehprukhnytskyi.util.BodyType;
 import com.olehprukhnytskyi.util.CustomHeaders;
 import com.olehprukhnytskyi.util.Gender;
 import com.olehprukhnytskyi.util.Goal;
+import java.math.BigDecimal;
 import java.security.KeyPair;
 import net.javacrumbs.shedlock.core.LockProvider;
 import org.junit.jupiter.api.BeforeAll;
@@ -102,6 +103,7 @@ class UserProfileControllerTest extends AbstractRedisTest {
                 .gender(Gender.MALE)
                 .goal(Goal.LOSE)
                 .height(190)
+                .weeklyWeightChangeKg(new BigDecimal("-0.40"))
                 .weight(90)
                 .goalWeight(60)
                 .bodyType(BodyType.NORMAL)
@@ -220,6 +222,7 @@ class UserProfileControllerTest extends AbstractRedisTest {
                 .weight(70)
                 .goalWeight(60)
                 .height(180)
+                .weeklyWeightChangeKg(new BigDecimal("-0.40"))
                 .gender(Gender.MALE)
                 .bodyType(BodyType.NORMAL)
                 .activityLevel(ActivityLevel.EXTRA_ACTIVE)
@@ -261,6 +264,7 @@ class UserProfileControllerTest extends AbstractRedisTest {
                 .age(30)
                 .weight(80)
                 .goalWeight(60)
+                .weeklyWeightChangeKg(new BigDecimal("0.00"))
                 .height(175)
                 .gender(Gender.FEMALE)
                 .bodyType(BodyType.NORMAL)
