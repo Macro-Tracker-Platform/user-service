@@ -1,0 +1,36 @@
+databaseChangeLog:
+  - changeSet:
+      id: 1787302800000-1
+      author: codex
+      changes:
+        - addColumn:
+            tableName: user_profiles
+            columns:
+              - column:
+                  name: weekly_weight_change_kg
+                  type: DECIMAL(3,2)
+        - update:
+            tableName: user_profiles
+            columns:
+              - column:
+                  name: weekly_weight_change_kg
+                  valueNumeric: -0.40
+            where: goal = 'LOSE'
+        - update:
+            tableName: user_profiles
+            columns:
+              - column:
+                  name: weekly_weight_change_kg
+                  valueNumeric: 0.25
+            where: goal = 'GAIN'
+        - update:
+            tableName: user_profiles
+            columns:
+              - column:
+                  name: weekly_weight_change_kg
+                  valueNumeric: 0.00
+            where: weekly_weight_change_kg IS NULL
+        - addNotNullConstraint:
+            tableName: user_profiles
+            columnName: weekly_weight_change_kg
+            columnDataType: DECIMAL(3,2)

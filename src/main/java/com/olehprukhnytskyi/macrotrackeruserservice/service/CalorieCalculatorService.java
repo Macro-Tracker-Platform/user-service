@@ -8,6 +8,8 @@ import com.olehprukhnytskyi.util.Gender;
 import com.olehprukhnytskyi.util.Goal;
 
 public class CalorieCalculatorService {
+    private static final int CALORIES_PER_KG_BODY_WEIGHT = 7700;
+    private static final int DAYS_PER_WEEK = 7;
     private static final int CALORIES_PER_GRAM_CARBS = 4;
     private static final int CALORIES_PER_GRAM_FAT = 9;
     private static final int CALORIES_PER_GRAM_PROTEIN = 4;
@@ -30,7 +32,8 @@ public class CalorieCalculatorService {
 
         Goal effectiveGoal = resolveEffectiveGoal(data.getGoal(), bmi, effectiveBodyType);
 
-        int targetCalories = calculateTargetCalories(tdee, effectiveGoal, data.getGender());
+        int targetCalories = calculateTargetCalories(tdee, effectiveGoal,
+                data.getWeeklyWeightChangeKg(), data.getGender());
         return calculateMacros(data, effectiveBodyType, effectiveGoal, targetCalories);
     }
 
@@ -75,15 +78,14 @@ public class CalorieCalculatorService {
         }
     }
 
-    private static int calculateTargetCalories(double tdee, Goal goal, Gender gender) {
-        int calories;
-        if (goal == Goal.LOSE) {
-            calories = (int) (tdee * 0.80);
-        } else if (goal == Goal.MAINTAIN) {
-            calories = (int) tdee;
-        } else {
-            calories = (int) (tdee + 300);
-        }
+    private static int calculateTargetCalories(double tdee, Goal goal,
+                                               java.math.BigDecimal weeklyWeightChangeKg,
+                                               Gender gender) {
+        java.math.BigDecimal effectiveChange = WeeklyWeightChangePolicy.resolve(
+                goal, weeklyWeightChangeKg);
+        double dailyCalorieAdjustment = effectiveChange.doubleValue()
+                * CALORIES_PER_KG_BODY_WEIGHT / DAYS_PER_WEEK;
+        int calories = (int) Math.round(tdee + dailyCalorieAdjustment);
 
         int minAllowed = (gender == Gender.MALE) ? MIN_CALORIES_MALE : MIN_CALORIES_FEMALE;
         return Math.max(calories, minAllowed);

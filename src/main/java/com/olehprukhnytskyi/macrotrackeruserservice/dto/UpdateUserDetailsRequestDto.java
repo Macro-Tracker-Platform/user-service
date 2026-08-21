@@ -5,7 +5,10 @@ import com.olehprukhnytskyi.util.BodyType;
 import com.olehprukhnytskyi.util.Gender;
 import com.olehprukhnytskyi.util.Goal;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Positive;
+import java.math.BigDecimal;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -28,6 +31,12 @@ public class UpdateUserDetailsRequestDto {
     @Schema(description = "User goal weight in kilograms", example = "70", minimum = "1")
     @Positive
     private Integer goalWeight;
+
+    @Schema(description = "Desired weekly weight change in kilograms", example = "-0.4",
+            minimum = "-1.0", maximum = "1.0")
+    @DecimalMin("-1.0")
+    @DecimalMax("1.0")
+    private BigDecimal weeklyWeightChangeKg;
 
     @Schema(description = "User height in centimeters", example = "175", minimum = "1")
     @Positive

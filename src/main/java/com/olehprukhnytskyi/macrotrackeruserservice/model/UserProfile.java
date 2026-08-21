@@ -15,6 +15,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.MapsId;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
+import java.math.BigDecimal;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -41,6 +42,9 @@ public class UserProfile {
 
     @Column(nullable = false)
     private Integer goalWeight;
+
+    @Column(nullable = false, precision = 3, scale = 2)
+    private BigDecimal weeklyWeightChangeKg;
 
     @Column(nullable = false)
     private Integer height;

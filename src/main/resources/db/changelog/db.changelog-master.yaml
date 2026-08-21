@@ -23,3 +23,5 @@ databaseChangeLog:
       file: db/changelog/changes/10-create-subscriptions.yaml
   - include:
       file: db/changelog/changes/11-create-goal-schedules.yaml
+  - include:
+      file: db/changelog/changes/12-add-weekly-weight-change-column.yaml

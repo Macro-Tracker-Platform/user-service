@@ -13,6 +13,8 @@ import com.olehprukhnytskyi.macrotrackeruserservice.projection.UserDetailsProjec
 import com.olehprukhnytskyi.macrotrackeruserservice.projection.UserGoalProjection;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.UserProfileRepository;
 import com.olehprukhnytskyi.macrotrackeruserservice.util.WaterGoalMode;
+import com.olehprukhnytskyi.util.Goal;
+import java.math.BigDecimal;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
@@ -60,6 +62,12 @@ public class UserProfileService {
     public UserDetailsResponseDto updateUserDetails(
             UpdateUserDetailsRequestDto requestDto, Long userId) {
         UserProfile profile = findProfile(userId, "update");
+        Goal effectiveGoal = requestDto.getGoal() == null ? profile.getGoal()
+                : requestDto.getGoal();
+        BigDecimal requestedChange = requestDto.getWeeklyWeightChangeKg() == null
+                ? profile.getWeeklyWeightChangeKg() : requestDto.getWeeklyWeightChangeKg();
+        requestDto.setWeeklyWeightChangeKg(
+                WeeklyWeightChangePolicy.resolve(effectiveGoal, requestedChange));
         if (requestDto.isRecalculate()) {
             GoalResponseDto calculatedGoal = CalorieCalculatorService.calculateGoal(
                     profileMapper.toUserDetailsRequest(requestDto));

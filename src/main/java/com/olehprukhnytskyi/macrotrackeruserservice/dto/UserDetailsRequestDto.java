@@ -5,8 +5,11 @@ import com.olehprukhnytskyi.util.BodyType;
 import com.olehprukhnytskyi.util.Gender;
 import com.olehprukhnytskyi.util.Goal;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import java.math.BigDecimal;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -46,6 +49,17 @@ public class UserDetailsRequestDto {
     )
     @Positive
     private Integer goalWeight;
+
+    @Schema(
+            description = "Desired weekly weight change in kilograms. Negative values lose "
+                    + "weight, positive values gain weight, and zero maintains weight.",
+            example = "-0.4",
+            minimum = "-1.0",
+            maximum = "1.0"
+    )
+    @DecimalMin("-1.0")
+    @DecimalMax("1.0")
+    private BigDecimal weeklyWeightChangeKg;
 
     @Schema(
             description = "User height in centimeters",

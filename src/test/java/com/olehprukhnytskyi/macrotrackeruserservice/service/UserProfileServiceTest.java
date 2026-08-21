@@ -52,8 +52,11 @@ class UserProfileServiceTest {
         // Given
         Long userId = 1L;
         UserDetailsProjection projection = mock(UserDetailsProjection.class);
-        UserDetailsResponseDto expectedDto = new UserDetailsResponseDto(25, 70, 70, 180,
-                Gender.MALE, ActivityLevel.MODERATELY_ACTIVE, Goal.MAINTAIN, BodyType.NORMAL);
+        UserDetailsResponseDto expectedDto = UserDetailsResponseDto.builder()
+                .age(25).weight(70).goalWeight(70).weeklyWeightChangeKg(java.math.BigDecimal.ZERO)
+                .height(180).gender(Gender.MALE)
+                .activityLevel(ActivityLevel.MODERATELY_ACTIVE)
+                .goal(Goal.MAINTAIN).bodyType(BodyType.NORMAL).build();
 
         when(userProfileRepository.findDetailsByUserId(userId))
                 .thenReturn(Optional.of(projection));

@@ -100,6 +100,9 @@ public class AuthService {
         newUser.setRoles(new HashSet<>(Collections.singleton(UserRole.USER)));
 
         UserProfile profile = userMapper.toUserProfile(dto.getUserDetails(), newUser);
+        profile.setWeeklyWeightChangeKg(WeeklyWeightChangePolicy.resolve(
+                dto.getUserDetails().getGoal(),
+                dto.getUserDetails().getWeeklyWeightChangeKg()));
         if (dto.getUserDetails().getGoalWeight() != null) {
             profile.setGoalWeight(dto.getUserDetails().getGoalWeight());
         } else {
@@ -158,6 +161,9 @@ public class AuthService {
             user.setResetPasswordCodeExpiresAt(null);
 
             UserProfile profile = userMapper.toUserProfile(tokenDto.getUserDetails(), user);
+            profile.setWeeklyWeightChangeKg(WeeklyWeightChangePolicy.resolve(
+                    tokenDto.getUserDetails().getGoal(),
+                    tokenDto.getUserDetails().getWeeklyWeightChangeKg()));
             if (tokenDto.getUserDetails().getGoalWeight() != null) {
                 profile.setGoalWeight(tokenDto.getUserDetails().getGoalWeight());
             } else {

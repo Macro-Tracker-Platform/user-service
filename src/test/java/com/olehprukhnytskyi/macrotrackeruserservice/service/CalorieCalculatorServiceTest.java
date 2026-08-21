@@ -32,4 +32,29 @@ class CalorieCalculatorServiceTest {
         // Then
         assertThat(result.getWaterGoalMl()).isEqualTo(2500);
     }
+
+    @Test
+    @DisplayName("Selected weekly weight pace should adjust the calorie target")
+    void calculateGoal_whenWeeklyPaceChanges_shouldAdjustCalories() {
+        UserDetailsRequestDto gentle = baseWeightLossDetails()
+                .weeklyWeightChangeKg(java.math.BigDecimal.valueOf(-0.2)).build();
+        UserDetailsRequestDto fast = baseWeightLossDetails()
+                .weeklyWeightChangeKg(java.math.BigDecimal.valueOf(-0.6)).build();
+
+        GoalResponseDto gentleGoal = CalorieCalculatorService.calculateGoal(gentle);
+        GoalResponseDto fastGoal = CalorieCalculatorService.calculateGoal(fast);
+
+        assertThat(gentleGoal.getCalories() - fastGoal.getCalories()).isEqualTo(440);
+    }
+
+    private UserDetailsRequestDto.UserDetailsRequestDtoBuilder baseWeightLossDetails() {
+        return UserDetailsRequestDto.builder()
+                .age(30)
+                .weight(80)
+                .height(180)
+                .gender(Gender.MALE)
+                .activityLevel(ActivityLevel.MODERATELY_ACTIVE)
+                .goal(Goal.LOSE)
+                .bodyType(BodyType.NORMAL);
+    }
 }
