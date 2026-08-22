@@ -19,6 +19,10 @@ public class CalorieCalculatorService {
     private static final int MAX_SAFE_FAT = 110;
     private static final int WATER_ML_PER_KG = 35;
     private static final int WATER_GOAL_ROUNDING_ML = 50;
+    private static final int MIN_AUTO_WATER_GOAL_ML = 1500;
+    private static final int MAX_AUTO_WATER_GOAL_ML = 4000;
+    private static final double WATER_REFERENCE_BMI = 25.0;
+    private static final double WATER_EXCESS_WEIGHT_FACTOR = 0.4;
 
     public static GoalResponseDto calculateGoal(UserDetailsRequestDto data) {
         double bmi = calculateBmi(data);
@@ -139,7 +143,7 @@ public class CalorieCalculatorService {
             remainingCalories = 0;
         }
         int carbs = remainingCalories / CALORIES_PER_GRAM_CARBS;
-        int waterGoalMl = calculateWaterGoal(data.getWeight());
+        int waterGoalMl = calculateWaterGoal(data);
         return GoalResponseDto.builder()
                 .calories(targetCalories)
                 .protein(protein)
@@ -149,10 +153,23 @@ public class CalorieCalculatorService {
                 .build();
     }
 
-    private static int calculateWaterGoal(int weightKg) {
-        int unroundedGoal = weightKg * WATER_ML_PER_KG;
-        return Math.round((float) unroundedGoal / WATER_GOAL_ROUNDING_ML)
-               * WATER_GOAL_ROUNDING_ML;
+    private static int calculateWaterGoal(UserDetailsRequestDto data) {
+        double hydrationWeight = calculateHydrationWeight(data);
+        int unroundedGoal = (int) Math.round(hydrationWeight * WATER_ML_PER_KG);
+        int roundedGoal = Math.round((float) unroundedGoal / WATER_GOAL_ROUNDING_ML)
+                * WATER_GOAL_ROUNDING_ML;
+        return Math.clamp(roundedGoal, MIN_AUTO_WATER_GOAL_ML, MAX_AUTO_WATER_GOAL_ML);
+    }
+
+    private static double calculateHydrationWeight(UserDetailsRequestDto data) {
+        double heightMeters = data.getHeight() / 100.0;
+        double referenceWeight = WATER_REFERENCE_BMI * heightMeters * heightMeters;
+
+        if (data.getWeight() <= referenceWeight) {
+            return data.getWeight();
+        }
+        return referenceWeight
+                + ((data.getWeight() - referenceWeight) * WATER_EXCESS_WEIGHT_FACTOR);
     }
 
     private static double getProteinMultiplier(BodyType bodyType, Goal goal) {

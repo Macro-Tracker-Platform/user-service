@@ -34,6 +34,24 @@ class CalorieCalculatorServiceTest {
     }
 
     @Test
+    @DisplayName("When user has high body weight, should cap automatic water goal")
+    void calculateGoal_whenHighBodyWeight_shouldCapAutomaticWaterGoal() {
+        UserDetailsRequestDto details = UserDetailsRequestDto.builder()
+                .age(30)
+                .weight(180)
+                .height(180)
+                .gender(Gender.MALE)
+                .activityLevel(ActivityLevel.MODERATELY_ACTIVE)
+                .goal(Goal.MAINTAIN)
+                .bodyType(BodyType.HIGH_BODY_FAT)
+                .build();
+
+        GoalResponseDto result = CalorieCalculatorService.calculateGoal(details);
+
+        assertThat(result.getWaterGoalMl()).isEqualTo(4000);
+    }
+
+    @Test
     @DisplayName("Selected weekly weight pace should adjust the calorie target")
     void calculateGoal_whenWeeklyPaceChanges_shouldAdjustCalories() {
         UserDetailsRequestDto gentle = baseWeightLossDetails()
