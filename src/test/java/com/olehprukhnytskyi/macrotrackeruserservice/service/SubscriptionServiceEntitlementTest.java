@@ -69,7 +69,7 @@ class SubscriptionServiceEntitlementTest {
         assertThat(entitlement.getPlan()).isEqualTo("LEGACY_FREE");
         assertThat(entitlement.isLegacyAccess()).isTrue();
         assertThat(entitlement.getFeatures().getNutritionLabelScans().getLimit())
-                .isEqualTo(60);
+                .isEqualTo(30);
         assertThat(entitlement.getFeatures().isAdvancedInsights()).isTrue();
         assertThat(entitlement.getFeatures().isFuturePlanning()).isFalse();
         assertThat(entitlement.getFeatures().isWeekdayGoals()).isFalse();

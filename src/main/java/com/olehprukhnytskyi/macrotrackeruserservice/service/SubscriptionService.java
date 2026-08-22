@@ -28,10 +28,11 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 @RequiredArgsConstructor
 public class SubscriptionService {
-    private static final int FREE_SCAN_LIMIT = 3;
-    private static final int PRO_SCAN_LIMIT = 60;
+    private static final int FREE_SUCCESSFUL_SCAN_MONTHLY_LIMIT = 3;
+    private static final int PRO_SUCCESSFUL_SCAN_DAILY_LIMIT = 30;
     private static final String PROVIDER = "GOOGLE_PLAY";
-    private static final String MONTHLY_QUOTA_PREFIX = "nutrition-scan:monthly:";
+    private static final String SUCCESS_MONTHLY_QUOTA_PREFIX = "nutrition-scan:success:monthly:";
+    private static final String SUCCESS_DAILY_QUOTA_PREFIX = "nutrition-scan:success:daily:";
 
     private final SubscriptionRepository subscriptionRepository;
     private final BillingEventRepository billingEventRepository;
@@ -90,15 +91,9 @@ public class SubscriptionService {
         boolean legacyAccess = !pro
                 && legacyAccessPolicy.grantsFreeProAccess(appVersionCode);
         boolean hasProFeatures = pro || legacyAccess;
-        int limit = hasProFeatures ? PRO_SCAN_LIMIT : FREE_SCAN_LIMIT;
         ZonedDateTime now = ZonedDateTime.now(properties.getQuotaZone());
-        YearMonth month = YearMonth.from(now);
-        String key = MONTHLY_QUOTA_PREFIX + userId + ":" + month;
-        int used = parseUsage(redisTemplate.opsForValue().get(key));
-        Instant resetAt = month.plusMonths(1)
-                .atDay(1)
-                .atStartOfDay(properties.getQuotaZone())
-                .toInstant();
+        ScanQuotaWindow scanQuotaWindow = scanQuotaWindow(userId, hasProFeatures, now);
+        int used = parseUsage(redisTemplate.opsForValue().get(scanQuotaWindow.key()));
         return EntitlementResponseDto.builder()
                 .plan(pro ? "PRO" : legacyAccess ? "LEGACY_FREE" : "FREE")
                 .state(status)
@@ -106,9 +101,9 @@ public class SubscriptionService {
                 .legacyAccess(legacyAccess)
                 .features(EntitlementResponseDto.Features.builder()
                         .nutritionLabelScans(EntitlementResponseDto.ScanAllowance.builder()
-                                .limit(limit)
-                                .remaining(Math.max(0, limit - used))
-                                .resetAt(resetAt)
+                                .limit(scanQuotaWindow.limit())
+                                .remaining(Math.max(0, scanQuotaWindow.limit() - used))
+                                .resetAt(scanQuotaWindow.resetAt())
                                 .build())
                         .advancedInsights(hasProFeatures)
                         // These features did not exist in legacy clients. Keeping them Pro-only
@@ -163,6 +158,30 @@ public class SubscriptionService {
 
     public void verifyRtdnAuthorization(String authorization) {
         pubSubTokenVerifier.verify(authorization);
+    }
+
+    private ScanQuotaWindow scanQuotaWindow(Long userId, boolean premium,
+                                            ZonedDateTime now) {
+        if (premium) {
+            Instant resetAt = now.toLocalDate().plusDays(1)
+                    .atStartOfDay(now.getZone())
+                    .toInstant();
+            return new ScanQuotaWindow(
+                    SUCCESS_DAILY_QUOTA_PREFIX + userId + ":" + now.toLocalDate(),
+                    PRO_SUCCESSFUL_SCAN_DAILY_LIMIT,
+                    resetAt
+            );
+        }
+        YearMonth month = YearMonth.from(now);
+        Instant resetAt = month.plusMonths(1)
+                .atDay(1)
+                .atStartOfDay(now.getZone())
+                .toInstant();
+        return new ScanQuotaWindow(
+                SUCCESS_MONTHLY_QUOTA_PREFIX + userId + ":" + month,
+                FREE_SUCCESSFUL_SCAN_MONTHLY_LIMIT,
+                resetAt
+        );
     }
 
     private void refreshByToken(String purchaseToken) {
@@ -229,6 +248,9 @@ public class SubscriptionService {
                     "Purchase is linked to another account");
         }
         return subscription;
+    }
+
+    private record ScanQuotaWindow(String key, int limit, Instant resetAt) {
     }
 
     private int parseUsage(String value) {
