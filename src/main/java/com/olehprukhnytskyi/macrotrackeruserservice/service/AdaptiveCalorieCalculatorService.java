@@ -46,6 +46,18 @@ public class AdaptiveCalorieCalculatorService {
     private static final double AGGRESSIVE_CHANGE_PERCENT = 1.0;
     private static final double TARGET_LOWER_TOLERANCE_PERCENT = 0.15;
     private static final double MAINTAIN_TOLERANCE_PERCENT = 0.25;
+    private static final String BLOCKER_FOOD_LOG_DAYS_MISSING =
+            "FOOD_LOG_DAYS_MISSING";
+    private static final String BLOCKER_WEIGHT_ENTRIES_MISSING =
+            "WEIGHT_ENTRIES_MISSING";
+    private static final String BLOCKER_WEIGHT_SPAN_TOO_SHORT =
+            "WEIGHT_SPAN_TOO_SHORT";
+    private static final String BLOCKER_GOAL_CHANGED_RECENTLY =
+            "GOAL_CHANGED_RECENTLY";
+    private static final String BLOCKER_WEIGHT_ENTRIES_VOLATILE =
+            "WEIGHT_ENTRIES_VOLATILE";
+    private static final String BLOCKER_RECENT_WEIGHT_GAP =
+            "RECENT_WEIGHT_GAP";
 
     private final UserProfileRepository userProfileRepository;
     private final UserProfileMapper profileMapper;
@@ -76,9 +88,7 @@ public class AdaptiveCalorieCalculatorService {
                     .targetKgPerWeek(targetTrend)
                     .nextCheckInDate(nextCheckIn)
                     .status("PROFILE_DATA_REQUIRED")
-                    .explanation("Current weight must be greater than zero before "
-                            + "a calorie recommendation can be calculated.")
-                    .blockers(List.of("Update your current weight in profile details"))
+                    .blockers(List.of("PROFILE_WEIGHT_REQUIRED"))
                     .build();
         }
 
@@ -113,10 +123,7 @@ public class AdaptiveCalorieCalculatorService {
                     .estimatedGoalDate(today)
                     .nextCheckInDate(nextCheckIn)
                     .status("GOAL_REACHED")
-                    .explanation("You have reached your target weight. Calories are now "
-                            + "set to maintenance. Update your goal in profile settings "
-                            + "to maintain your weight or choose a new target.")
-                    .blockers(List.of("Update your goal in profile settings"))
+                    .blockers(List.of("GOAL_UPDATE_REQUIRED"))
                     .build();
         }
         Integer weeksToGoal = estimatedWeeksToGoal(
@@ -132,8 +139,6 @@ public class AdaptiveCalorieCalculatorService {
                     .estimatedGoalDate(goalDate)
                     .nextCheckInDate(nextCheckIn)
                     .status("BUILDING_DATA")
-                    .explanation("At least 7 days of consistent food and weight data "
-                            + "are needed before adjusting calories.")
                     .blockers(blockers)
                     .build();
         }
@@ -146,9 +151,7 @@ public class AdaptiveCalorieCalculatorService {
                 currentWeight, adjustmentStep, conservative);
         if (decision.delta() < 0
                 && profile.getCalories() + decision.delta() < calorieFloor) {
-            decision = new Decision(0, "BMR_FLOOR",
-                    "Calories stay unchanged because a further reduction would put the "
-                            + "target below estimated BMR.");
+            decision = new Decision(0, "BMR_FLOOR");
         }
         int suggestedCalories = profile.getCalories() + decision.delta();
         return base(profile, loggedDays, weights.size(), spanDays, trend)
@@ -161,7 +164,6 @@ public class AdaptiveCalorieCalculatorService {
                 .estimatedGoalDate(goalDate)
                 .nextCheckInDate(nextCheckIn)
                 .status(decision.status())
-                .explanation(decision.explanation())
                 .blockers(List.of())
                 .build();
     }
@@ -184,26 +186,22 @@ public class AdaptiveCalorieCalculatorService {
                                        Optional<LocalDate> lastGoalChange) {
         List<String> blockers = new ArrayList<>();
         if (loggedDays < REQUIRED_LOGGED_DAYS) {
-            blockers.add("Log food on " + (REQUIRED_LOGGED_DAYS - loggedDays)
-                    + " more days");
+            blockers.add(BLOCKER_FOOD_LOG_DAYS_MISSING);
         }
         if (weights.size() < REQUIRED_WEIGHTS) {
-            blockers.add("Add " + (REQUIRED_WEIGHTS - weights.size())
-                    + " more weight entries");
+            blockers.add(BLOCKER_WEIGHT_ENTRIES_MISSING);
         }
         if (spanDays < REQUIRED_WEIGHT_SPAN_DAYS) {
-            blockers.add("Keep tracking weight for "
-                    + (REQUIRED_WEIGHT_SPAN_DAYS - spanDays) + " more days");
+            blockers.add(BLOCKER_WEIGHT_SPAN_TOO_SHORT);
         }
         lastGoalChange
                 .filter(date -> date.isAfter(today.minusDays(GOAL_STABILITY_DAYS)))
-                .ifPresent(date -> blockers.add(
-                        "Keep the current goal for 7 days before adapting it"));
+                .ifPresent(date -> blockers.add(BLOCKER_GOAL_CHANGED_RECENTLY));
         if (hasVolatileWeightEntry(weights)) {
-            blockers.add("Recent weight entries are too volatile for a reliable trend");
+            blockers.add(BLOCKER_WEIGHT_ENTRIES_VOLATILE);
         }
         if (hasStaleRecentWeightGap(weights)) {
-            blockers.add("Add a few recent weight entries; the latest gap is over 7 days");
+            blockers.add(BLOCKER_RECENT_WEIGHT_GAP);
         }
         return blockers;
     }
@@ -214,9 +212,7 @@ public class AdaptiveCalorieCalculatorService {
         double observedPercent = trend.doubleValue()
                 / currentWeight.doubleValue() * 100;
         if (Math.abs(observedPercent) > ANOMALOUS_CHANGE_PERCENT) {
-            return new Decision(0, "ANOMALOUS_CHANGE_HOLD",
-                    "The recent weight change is unusually sharp and may reflect water "
-                            + "or glycogen. Keep calories unchanged and reassess next week.");
+            return new Decision(0, "ANOMALOUS_CHANGE_HOLD");
         }
         if (goal == null || goal == Goal.MAINTAIN) {
             return decideMaintenance(observedPercent, adjustmentStep);
@@ -226,12 +222,7 @@ public class AdaptiveCalorieCalculatorService {
         double progressPercent = observedPercent * direction;
         if (progressPercent >= AGGRESSIVE_CHANGE_PERCENT) {
             int delta = conservative ? 0 : -direction * CONSERVATIVE_ADJUSTMENT;
-            String explanation = delta == 0
-                    ? "Weight is changing faster than the selected target. Keep calories "
-                            + "unchanged and reassess next week."
-                    : "Weight is changing faster than the selected target. Adjust calories "
-                            + "by 50 kcal/day and reassess next week.";
-            return new Decision(delta, "AGGRESSIVE_CHANGE", explanation);
+            return new Decision(delta, "AGGRESSIVE_CHANGE");
         }
 
         double targetPercent = Math.abs(targetTrend.doubleValue())
@@ -239,24 +230,17 @@ public class AdaptiveCalorieCalculatorService {
         double lowerTarget = Math.max(0,
                 targetPercent - TARGET_LOWER_TOLERANCE_PERCENT);
         if (progressPercent >= lowerTarget) {
-            return new Decision(0, "ON_TRACK",
-                    "Your weight trend is close to the target. Keep the current plan "
-                            + "to preserve lean mass and avoid unnecessary changes.");
+            return new Decision(0, "ON_TRACK");
         }
-        return new Decision(direction * adjustmentStep, "ADJUSTMENT_RECOMMENDED",
-                "The observed trend is below the selected target. Adjust calories by "
-                        + adjustmentStep + " kcal/day and reassess next week.");
+        return new Decision(direction * adjustmentStep, "ADJUSTMENT_RECOMMENDED");
     }
 
     private Decision decideMaintenance(double observedPercent, int adjustmentStep) {
         if (Math.abs(observedPercent) <= MAINTAIN_TOLERANCE_PERCENT) {
-            return new Decision(0, "ON_TRACK",
-                    "Weight is stable. Keep the current calorie target.");
+            return new Decision(0, "ON_TRACK");
         }
         int delta = observedPercent > 0 ? -adjustmentStep : adjustmentStep;
-        return new Decision(delta, "ADJUSTMENT_RECOMMENDED",
-                "Weight is drifting outside the maintenance range. Adjust calories by "
-                        + Math.abs(delta) + " kcal/day and reassess next week.");
+        return new Decision(delta, "ADJUSTMENT_RECOMMENDED");
     }
 
     private List<WeightSampleDto> normalizedWeights(
@@ -426,6 +410,6 @@ public class AdaptiveCalorieCalculatorService {
                 .orElse(today.plusWeeks(1));
     }
 
-    private record Decision(int delta, String status, String explanation) {
+    private record Decision(int delta, String status) {
     }
 }

@@ -80,7 +80,6 @@ class AdaptiveCalorieCalculatorServiceTest {
 
         assertThat(result.getCalorieDelta()).isZero();
         assertThat(result.getStatus()).isEqualTo("ANOMALOUS_CHANGE_HOLD");
-        assertThat(result.getExplanation()).contains("water or glycogen");
     }
 
     @Test
@@ -90,7 +89,6 @@ class AdaptiveCalorieCalculatorServiceTest {
 
         assertThat(result.getCalorieDelta()).isEqualTo(50);
         assertThat(result.getStatus()).isEqualTo("AGGRESSIVE_CHANGE");
-        assertThat(result.getExplanation()).contains("Adjust calories by 50");
     }
 
     @Test
@@ -100,7 +98,6 @@ class AdaptiveCalorieCalculatorServiceTest {
 
         assertThat(result.getCalorieDelta()).isZero();
         assertThat(result.getStatus()).isEqualTo("AGGRESSIVE_CHANGE");
-        assertThat(result.getExplanation()).contains("Keep calories unchanged");
     }
 
     @Test
@@ -184,7 +181,7 @@ class AdaptiveCalorieCalculatorServiceTest {
 
         assertThat(result.isEligible()).isFalse();
         assertThat(result.getLoggedDays()).isZero();
-        assertThat(result.getBlockers()).anyMatch(value -> value.contains("Log food"));
+        assertThat(result.getBlockers()).contains("FOOD_LOG_DAYS_MISSING");
     }
 
     @Test
@@ -211,7 +208,7 @@ class AdaptiveCalorieCalculatorServiceTest {
 
         assertThat(result.isEligible()).isFalse();
         assertThat(result.getStatus()).isEqualTo("BUILDING_DATA");
-        assertThat(result.getBlockers()).anyMatch(value -> value.contains("latest gap"));
+        assertThat(result.getBlockers()).contains("RECENT_WEIGHT_GAP");
     }
 
     @Test
@@ -229,7 +226,6 @@ class AdaptiveCalorieCalculatorServiceTest {
         assertThat(result.getSuggestedCalories()).isGreaterThan(profile.getCalories());
         assertThat(result.getEstimatedMaintenanceCalories())
                 .isEqualTo(result.getSuggestedCalories());
-        assertThat(result.getExplanation()).contains("reached your target weight");
     }
 
     @Test

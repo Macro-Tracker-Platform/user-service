@@ -21,8 +21,7 @@ public class CalorieCalculatorService {
     private static final int WATER_GOAL_ROUNDING_ML = 50;
 
     public static GoalResponseDto calculateGoal(UserDetailsRequestDto data) {
-        double heightMeters = data.getHeight() / 100.0;
-        double bmi = data.getWeight() / (heightMeters * heightMeters);
+        double bmi = calculateBmi(data);
         BodyType effectiveBodyType = resolveBodyType(data.getBodyType(), bmi);
 
         double bmr = calculateBmr(data, effectiveBodyType, bmi);
@@ -32,31 +31,37 @@ public class CalorieCalculatorService {
 
         Goal effectiveGoal = resolveEffectiveGoal(data.getGoal(), bmi, effectiveBodyType);
 
+        int calorieFloor = calculateCalorieFloor(data);
+
         int targetCalories = calculateTargetCalories(tdee, effectiveGoal,
-                data.getWeeklyWeightChangeKg(), data.getGender());
+                data.getWeeklyWeightChangeKg(), calorieFloor);
         return calculateMacros(data, effectiveBodyType, effectiveGoal, targetCalories);
     }
 
     static int calculateCalorieFloor(UserDetailsRequestDto data) {
         int bmrFloor = calculateBmrCalories(data);
-        int absoluteFloor = data.getGender() == Gender.MALE
+        int absoluteFloor = (data.getGender() == Gender.MALE)
                 ? MIN_CALORIES_MALE : MIN_CALORIES_FEMALE;
         return Math.max(bmrFloor, absoluteFloor);
     }
 
     static int calculateBmrCalories(UserDetailsRequestDto data) {
-        double heightMeters = data.getHeight() / 100.0;
-        double bmi = data.getWeight() / (heightMeters * heightMeters);
+        double bmi = calculateBmi(data);
         BodyType effectiveBodyType = resolveBodyType(data.getBodyType(), bmi);
         return (int) Math.ceil(calculateBmr(data, effectiveBodyType, bmi));
     }
 
     static int calculateMaintenanceCalories(UserDetailsRequestDto data) {
+        UserDetailsRequestDto maintenanceData = data.toBuilder()
+                .goal(Goal.MAINTAIN)
+                .weeklyWeightChangeKg(java.math.BigDecimal.ZERO)
+                .build();
+        return calculateGoal(maintenanceData).getCalories();
+    }
+
+    private static double calculateBmi(UserDetailsRequestDto data) {
         double heightMeters = data.getHeight() / 100.0;
-        double bmi = data.getWeight() / (heightMeters * heightMeters);
-        BodyType effectiveBodyType = resolveBodyType(data.getBodyType(), bmi);
-        double bmr = calculateBmr(data, effectiveBodyType, bmi);
-        return (int) Math.round(bmr * getActivityMultiplier(data.getActivityLevel(), bmi));
+        return data.getWeight() / (heightMeters * heightMeters);
     }
 
     private static BodyType resolveBodyType(BodyType originalType, double bmi) {
@@ -102,15 +107,14 @@ public class CalorieCalculatorService {
 
     private static int calculateTargetCalories(double tdee, Goal goal,
                                                java.math.BigDecimal weeklyWeightChangeKg,
-                                               Gender gender) {
+                                               int calorieFloor) {
         java.math.BigDecimal effectiveChange = WeeklyWeightChangePolicy.resolve(
                 goal, weeklyWeightChangeKg);
         double dailyCalorieAdjustment = effectiveChange.doubleValue()
                 * CALORIES_PER_KG_BODY_WEIGHT / DAYS_PER_WEEK;
         int calories = (int) Math.round(tdee + dailyCalorieAdjustment);
 
-        int minAllowed = (gender == Gender.MALE) ? MIN_CALORIES_MALE : MIN_CALORIES_FEMALE;
-        return Math.max(calories, minAllowed);
+        return Math.max(calories, calorieFloor);
     }
 
     private static GoalResponseDto calculateMacros(UserDetailsRequestDto data, BodyType bodyType,
