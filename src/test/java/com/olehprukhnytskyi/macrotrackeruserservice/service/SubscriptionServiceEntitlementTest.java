@@ -2,14 +2,21 @@ package com.olehprukhnytskyi.macrotrackeruserservice.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.EntitlementResponseDto;
+import com.olehprukhnytskyi.macrotrackeruserservice.dto.GooglePurchaseDto;
+import com.olehprukhnytskyi.macrotrackeruserservice.model.Subscription;
 import com.olehprukhnytskyi.macrotrackeruserservice.properties.GooglePlayProperties;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.BillingEventRepository;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.SubscriptionRepository;
+import com.olehprukhnytskyi.macrotrackeruserservice.util.SubscriptionStatus;
+import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -40,13 +47,16 @@ class SubscriptionServiceEntitlementTest {
     private ValueOperations<String, String> valueOperations;
 
     private SubscriptionService subscriptionService;
+    private GooglePlayProperties googlePlayProperties;
 
     @BeforeEach
     void setUp() {
-        when(subscriptionRepository.findByUserIdOrderByExpiresAtDesc(USER_ID))
+        lenient().when(subscriptionRepository.findByUserIdOrderByExpiresAtDesc(USER_ID))
                 .thenReturn(List.of());
-        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-        when(valueOperations.get(anyString())).thenReturn(null);
+        lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        lenient().when(valueOperations.get(anyString())).thenReturn(null);
+        googlePlayProperties = new GooglePlayProperties();
+        googlePlayProperties.getProductIds().add("macro_tracker_pro");
         subscriptionService = new SubscriptionService(
                 subscriptionRepository,
                 billingEventRepository,
@@ -54,7 +64,7 @@ class SubscriptionServiceEntitlementTest {
                 pubSubTokenVerifier,
                 tokenCipher,
                 legacyAccessPolicy,
-                new GooglePlayProperties(),
+                googlePlayProperties,
                 redisTemplate,
                 new ObjectMapper());
     }
@@ -88,5 +98,46 @@ class SubscriptionServiceEntitlementTest {
         assertThat(entitlement.getFeatures().getNutritionLabelScans().getLimit())
                 .isEqualTo(3);
         assertThat(entitlement.getFeatures().isAdvancedInsights()).isFalse();
+    }
+
+    @Test
+    void verifyClaimsExistingGooglePlayPurchaseForCurrentUser() {
+        Long previousUserId = 7L;
+        String token = "purchase-token";
+        String hash = "purchase-token-hash";
+        Instant expiresAt = Instant.now().plusSeconds(3600);
+        GooglePurchaseDto purchase = new GooglePurchaseDto();
+        purchase.setProductId("macro_tracker_pro");
+        purchase.setPurchaseToken(token);
+        Subscription existing = Subscription.builder()
+                .id(1L)
+                .userId(previousUserId)
+                .provider("GOOGLE_PLAY")
+                .productId("macro_tracker_pro")
+                .purchaseTokenHash(hash)
+                .purchaseTokenEncrypted("encrypted-token")
+                .status(SubscriptionStatus.PRO_ACTIVE)
+                .expiresAt(expiresAt)
+                .build();
+        GooglePlaySubscriptionSnapshot snapshot = new GooglePlaySubscriptionSnapshot(
+                "macro_tracker_pro",
+                "monthly",
+                "SUBSCRIPTION_STATE_ACTIVE",
+                Instant.now().minusSeconds(60),
+                expiresAt,
+                true,
+                true);
+        when(googlePlayApiClient.getSubscription(token)).thenReturn(snapshot);
+        when(tokenCipher.hash(token)).thenReturn(hash);
+        when(subscriptionRepository.findByPurchaseTokenHash(hash))
+                .thenReturn(Optional.of(existing));
+        when(subscriptionRepository.findByUserIdOrderByExpiresAtDesc(USER_ID))
+                .thenReturn(List.of(existing));
+
+        EntitlementResponseDto entitlement = subscriptionService.verify(USER_ID, purchase, "42");
+
+        assertThat(existing.getUserId()).isEqualTo(USER_ID);
+        assertThat(entitlement.getPlan()).isEqualTo("PRO");
+        verify(subscriptionRepository).save(existing);
     }
 }

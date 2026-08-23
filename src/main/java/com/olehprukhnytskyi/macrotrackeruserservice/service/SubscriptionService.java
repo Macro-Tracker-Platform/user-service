@@ -52,7 +52,7 @@ public class SubscriptionService {
         validateProduct(purchase.getProductId(), snapshot.productId());
         String hash = tokenCipher.hash(purchase.getPurchaseToken());
         Subscription subscription = subscriptionRepository.findByPurchaseTokenHash(hash)
-                .map(existing -> requireOwner(existing, userId))
+                .map(existing -> claimForUser(existing, userId))
                 .orElseGet(() -> Subscription.builder()
                         .userId(userId)
                         .provider(PROVIDER)
@@ -242,10 +242,9 @@ public class SubscriptionService {
         }
     }
 
-    private Subscription requireOwner(Subscription subscription, Long userId) {
+    private Subscription claimForUser(Subscription subscription, Long userId) {
         if (!subscription.getUserId().equals(userId)) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "Purchase is linked to another account");
+            subscription.setUserId(userId);
         }
         return subscription;
     }
