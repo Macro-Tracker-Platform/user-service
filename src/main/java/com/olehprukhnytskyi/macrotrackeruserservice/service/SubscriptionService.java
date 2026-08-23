@@ -52,7 +52,7 @@ public class SubscriptionService {
         validateProduct(purchase.getProductId(), snapshot.productId());
         String hash = tokenCipher.hash(purchase.getPurchaseToken());
         Subscription subscription = subscriptionRepository.findByPurchaseTokenHash(hash)
-                .map(existing -> claimForUser(existing, userId))
+                .map(existing -> keepWithLatestUser(existing, userId))
                 .orElseGet(() -> Subscription.builder()
                         .userId(userId)
                         .provider(PROVIDER)
@@ -242,10 +242,8 @@ public class SubscriptionService {
         }
     }
 
-    private Subscription claimForUser(Subscription subscription, Long userId) {
-        if (!subscription.getUserId().equals(userId)) {
-            subscription.setUserId(userId);
-        }
+    private Subscription keepWithLatestUser(Subscription subscription, Long userId) {
+        subscription.setUserId(userId);
         return subscription;
     }
 

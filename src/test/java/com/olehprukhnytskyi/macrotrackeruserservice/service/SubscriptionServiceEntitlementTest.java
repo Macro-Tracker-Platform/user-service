@@ -47,7 +47,6 @@ class SubscriptionServiceEntitlementTest {
     private ValueOperations<String, String> valueOperations;
 
     private SubscriptionService subscriptionService;
-    private GooglePlayProperties googlePlayProperties;
 
     @BeforeEach
     void setUp() {
@@ -55,7 +54,7 @@ class SubscriptionServiceEntitlementTest {
                 .thenReturn(List.of());
         lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         lenient().when(valueOperations.get(anyString())).thenReturn(null);
-        googlePlayProperties = new GooglePlayProperties();
+        GooglePlayProperties googlePlayProperties = new GooglePlayProperties();
         googlePlayProperties.getProductIds().add("macro_tracker_pro");
         subscriptionService = new SubscriptionService(
                 subscriptionRepository,
@@ -101,7 +100,7 @@ class SubscriptionServiceEntitlementTest {
     }
 
     @Test
-    void verifyClaimsExistingGooglePlayPurchaseForCurrentUser() {
+    void verifyKeepsExistingGooglePlayPurchaseWithLatestUserByDefault() {
         Long previousUserId = 7L;
         String token = "purchase-token";
         String hash = "purchase-token-hash";
