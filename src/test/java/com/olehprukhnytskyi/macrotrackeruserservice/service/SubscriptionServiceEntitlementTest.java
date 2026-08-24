@@ -10,10 +10,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.EntitlementResponseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.GooglePurchaseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.model.Subscription;
+import com.olehprukhnytskyi.macrotrackeruserservice.model.User;
 import com.olehprukhnytskyi.macrotrackeruserservice.properties.GooglePlayProperties;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.BillingEventRepository;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.SubscriptionRepository;
+import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.UserRepository;
 import com.olehprukhnytskyi.macrotrackeruserservice.util.SubscriptionStatus;
+import com.olehprukhnytskyi.util.UserRole;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -32,6 +35,8 @@ class SubscriptionServiceEntitlementTest {
     @Mock
     private SubscriptionRepository subscriptionRepository;
     @Mock
+    private UserRepository userRepository;
+    @Mock
     private BillingEventRepository billingEventRepository;
     @Mock
     private GooglePlayApiClient googlePlayApiClient;
@@ -39,8 +44,6 @@ class SubscriptionServiceEntitlementTest {
     private GooglePubSubTokenVerifier pubSubTokenVerifier;
     @Mock
     private PurchaseTokenCipher tokenCipher;
-    @Mock
-    private LegacyAccessPolicy legacyAccessPolicy;
     @Mock
     private StringRedisTemplate redisTemplate;
     @Mock
@@ -52,51 +55,64 @@ class SubscriptionServiceEntitlementTest {
     void setUp() {
         lenient().when(subscriptionRepository.findByUserIdOrderByExpiresAtDesc(USER_ID))
                 .thenReturn(List.of());
+        lenient().when(userRepository.findById(USER_ID)).thenReturn(Optional.empty());
         lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         lenient().when(valueOperations.get(anyString())).thenReturn(null);
         GooglePlayProperties googlePlayProperties = new GooglePlayProperties();
         googlePlayProperties.getProductIds().add("macro_tracker_pro");
         subscriptionService = new SubscriptionService(
                 subscriptionRepository,
+                userRepository,
                 billingEventRepository,
                 googlePlayApiClient,
                 pubSubTokenVerifier,
                 tokenCipher,
-                legacyAccessPolicy,
                 googlePlayProperties,
                 redisTemplate,
                 new ObjectMapper());
     }
 
     @Test
-    void legacyClientGetsTemporaryProFeaturesForFree() {
-        when(legacyAccessPolicy.grantsFreeProAccess(null)).thenReturn(true);
-
-        EntitlementResponseDto entitlement = subscriptionService
-                .getEntitlement(USER_ID, null);
-
-        assertThat(entitlement.getPlan()).isEqualTo("LEGACY_FREE");
-        assertThat(entitlement.isLegacyAccess()).isTrue();
-        assertThat(entitlement.getFeatures().getNutritionLabelScans().getLimit())
-                .isEqualTo(30);
-        assertThat(entitlement.getFeatures().isAdvancedInsights()).isTrue();
-        assertThat(entitlement.getFeatures().isFuturePlanning()).isFalse();
-        assertThat(entitlement.getFeatures().isWeekdayGoals()).isFalse();
-        assertThat(entitlement.getFeatures().isAdaptiveCalories()).isFalse();
-    }
-
-    @Test
-    void currentClientWithoutSubscriptionKeepsFreeLimits() {
-        when(legacyAccessPolicy.grantsFreeProAccess("42")).thenReturn(false);
-
-        EntitlementResponseDto entitlement = subscriptionService
-                .getEntitlement(USER_ID, "42");
+    void userWithoutSubscriptionKeepsFreeLimits() {
+        EntitlementResponseDto entitlement = subscriptionService.getEntitlement(USER_ID);
 
         assertThat(entitlement.getPlan()).isEqualTo("FREE");
         assertThat(entitlement.isLegacyAccess()).isFalse();
         assertThat(entitlement.getFeatures().getNutritionLabelScans().getLimit())
                 .isEqualTo(3);
         assertThat(entitlement.getFeatures().isAdvancedInsights()).isFalse();
+    }
+
+    @Test
+    void adminGetsLifetimeProEntitlementWithoutSubscription() {
+        User admin = new User();
+        admin.addRole(UserRole.ADMIN);
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(admin));
+
+        EntitlementResponseDto entitlement = subscriptionService
+                .getEntitlement(USER_ID);
+
+        assertThat(entitlement.getPlan()).isEqualTo("PRO");
+        assertThat(entitlement.getState()).isEqualTo(SubscriptionStatus.PRO_ACTIVE);
+        assertThat(entitlement.getValidUntil()).isNull();
+        assertThat(entitlement.getFeatures().isFuturePlanning()).isTrue();
+        assertThat(entitlement.getFeatures().isWeekdayGoals()).isTrue();
+        assertThat(entitlement.getFeatures().isAdaptiveCalories()).isTrue();
+    }
+
+    @Test
+    void vipGetsLifetimeProEntitlementWithoutSubscription() {
+        User vip = new User();
+        vip.addRole(UserRole.VIP);
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(vip));
+
+        EntitlementResponseDto entitlement = subscriptionService
+                .getEntitlement(USER_ID);
+
+        assertThat(entitlement.getPlan()).isEqualTo("PRO");
+        assertThat(entitlement.getState()).isEqualTo(SubscriptionStatus.PRO_ACTIVE);
+        assertThat(entitlement.getValidUntil()).isNull();
+        assertThat(entitlement.getFeatures().isFuturePlanning()).isTrue();
     }
 
     @Test
@@ -133,7 +149,7 @@ class SubscriptionServiceEntitlementTest {
         when(subscriptionRepository.findByUserIdOrderByExpiresAtDesc(USER_ID))
                 .thenReturn(List.of(existing));
 
-        EntitlementResponseDto entitlement = subscriptionService.verify(USER_ID, purchase, "42");
+        EntitlementResponseDto entitlement = subscriptionService.verify(USER_ID, purchase);
 
         assertThat(existing.getUserId()).isEqualTo(USER_ID);
         assertThat(entitlement.getPlan()).isEqualTo("PRO");

@@ -123,7 +123,7 @@ public class GoalScheduleService {
     }
 
     private void requirePro(Long userId) {
-        EntitlementResponseDto entitlement = subscriptionService.getEntitlement(userId, null);
+        EntitlementResponseDto entitlement = subscriptionService.getEntitlement(userId);
         if (entitlement.getFeatures() == null
                 || !entitlement.getFeatures().isWeekdayGoals()) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,

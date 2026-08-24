@@ -18,35 +18,26 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequiredArgsConstructor
 public class SubscriptionController {
-    private static final String APP_VERSION_CODE_HEADER = "X-App-Version-Code";
-
     private final SubscriptionService subscriptionService;
 
     @PostMapping("/api/subscriptions/google/verify")
     public ResponseEntity<EntitlementResponseDto> verify(
             @RequestHeader(CustomHeaders.X_USER_ID) Long userId,
-            @RequestHeader(value = APP_VERSION_CODE_HEADER, required = false)
-            String appVersionCode,
             @RequestBody @Valid GooglePurchaseDto purchase) {
-        return ResponseEntity.ok(subscriptionService.verify(userId, purchase, appVersionCode));
+        return ResponseEntity.ok(subscriptionService.verify(userId, purchase));
     }
 
     @PostMapping("/api/subscriptions/google/restore")
     public ResponseEntity<EntitlementResponseDto> restore(
             @RequestHeader(CustomHeaders.X_USER_ID) Long userId,
-            @RequestHeader(value = APP_VERSION_CODE_HEADER, required = false)
-            String appVersionCode,
             @RequestBody @Valid RestoreGooglePurchasesRequestDto request) {
-        return ResponseEntity.ok(subscriptionService.restore(
-                userId, request.getPurchases(), appVersionCode));
+        return ResponseEntity.ok(subscriptionService.restore(userId, request.getPurchases()));
     }
 
     @GetMapping("/api/users/me/entitlements")
     public ResponseEntity<EntitlementResponseDto> entitlement(
-            @RequestHeader(CustomHeaders.X_USER_ID) Long userId,
-            @RequestHeader(value = APP_VERSION_CODE_HEADER, required = false)
-            String appVersionCode) {
-        return ResponseEntity.ok(subscriptionService.getEntitlement(userId, appVersionCode));
+            @RequestHeader(CustomHeaders.X_USER_ID) Long userId) {
+        return ResponseEntity.ok(subscriptionService.getEntitlement(userId));
     }
 
     @PostMapping("/internal/google-play/rtdn")

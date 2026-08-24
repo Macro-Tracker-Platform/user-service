@@ -10,7 +10,9 @@ import com.olehprukhnytskyi.macrotrackeruserservice.model.Subscription;
 import com.olehprukhnytskyi.macrotrackeruserservice.properties.GooglePlayProperties;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.BillingEventRepository;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.SubscriptionRepository;
+import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.UserRepository;
 import com.olehprukhnytskyi.macrotrackeruserservice.util.SubscriptionStatus;
+import com.olehprukhnytskyi.util.UserRole;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.YearMonth;
@@ -31,22 +33,22 @@ public class SubscriptionService {
     private static final int FREE_SUCCESSFUL_SCAN_MONTHLY_LIMIT = 3;
     private static final int PRO_SUCCESSFUL_SCAN_DAILY_LIMIT = 30;
     private static final String PROVIDER = "GOOGLE_PLAY";
+    private static final String LIFETIME_PLAN = "PRO";
     private static final String SUCCESS_MONTHLY_QUOTA_PREFIX = "nutrition-scan:success:monthly:";
     private static final String SUCCESS_DAILY_QUOTA_PREFIX = "nutrition-scan:success:daily:";
 
     private final SubscriptionRepository subscriptionRepository;
+    private final UserRepository userRepository;
     private final BillingEventRepository billingEventRepository;
     private final GooglePlayApiClient googlePlayApiClient;
     private final GooglePubSubTokenVerifier pubSubTokenVerifier;
     private final PurchaseTokenCipher tokenCipher;
-    private final LegacyAccessPolicy legacyAccessPolicy;
     private final GooglePlayProperties properties;
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
 
     @Transactional
-    public EntitlementResponseDto verify(Long userId, GooglePurchaseDto purchase,
-                                         String appVersionCode) {
+    public EntitlementResponseDto verify(Long userId, GooglePurchaseDto purchase) {
         GooglePlaySubscriptionSnapshot snapshot = googlePlayApiClient
                 .getSubscription(purchase.getPurchaseToken());
         validateProduct(purchase.getProductId(), snapshot.productId());
@@ -65,20 +67,23 @@ public class SubscriptionService {
             subscription.setAcknowledged(true);
         }
         subscriptionRepository.save(subscription);
-        return getEntitlement(userId, appVersionCode);
+        return getEntitlement(userId);
     }
 
     @Transactional
-    public EntitlementResponseDto restore(Long userId, List<GooglePurchaseDto> purchases,
-                                          String appVersionCode) {
+    public EntitlementResponseDto restore(Long userId, List<GooglePurchaseDto> purchases) {
         for (GooglePurchaseDto purchase : purchases) {
-            verify(userId, purchase, appVersionCode);
+            verify(userId, purchase);
         }
-        return getEntitlement(userId, appVersionCode);
+        return getEntitlement(userId);
     }
 
     @Transactional(readOnly = true)
-    public EntitlementResponseDto getEntitlement(Long userId, String appVersionCode) {
+    public EntitlementResponseDto getEntitlement(Long userId) {
+        if (hasLifetimeProRole(userId)) {
+            return buildLifetimeProEntitlement(userId);
+        }
+
         Subscription subscription = subscriptionRepository
                 .findByUserIdOrderByExpiresAtDesc(userId)
                 .stream()
@@ -88,29 +93,57 @@ public class SubscriptionService {
         SubscriptionStatus status = subscription == null
                 ? SubscriptionStatus.FREE : effectiveStatus(subscription);
         boolean pro = grantsPro(status);
-        boolean legacyAccess = !pro
-                && legacyAccessPolicy.grantsFreeProAccess(appVersionCode);
-        boolean hasProFeatures = pro || legacyAccess;
         ZonedDateTime now = ZonedDateTime.now(properties.getQuotaZone());
-        ScanQuotaWindow scanQuotaWindow = scanQuotaWindow(userId, hasProFeatures, now);
+        ScanQuotaWindow scanQuotaWindow = scanQuotaWindow(userId, pro, now);
         int used = parseUsage(redisTemplate.opsForValue().get(scanQuotaWindow.key()));
         return EntitlementResponseDto.builder()
-                .plan(pro ? "PRO" : legacyAccess ? "LEGACY_FREE" : "FREE")
+                .plan(pro ? "PRO" : "FREE")
                 .state(status)
                 .validUntil(subscription == null ? null : subscription.getExpiresAt())
-                .legacyAccess(legacyAccess)
+                .legacyAccess(false)
                 .features(EntitlementResponseDto.Features.builder()
                         .nutritionLabelScans(EntitlementResponseDto.ScanAllowance.builder()
                                 .limit(scanQuotaWindow.limit())
                                 .remaining(Math.max(0, scanQuotaWindow.limit() - used))
                                 .resetAt(scanQuotaWindow.resetAt())
                                 .build())
-                        .advancedInsights(hasProFeatures)
-                        // These features did not exist in legacy clients. Keeping them Pro-only
-                        // also makes service-to-service entitlement checks unambiguous.
+                        .advancedInsights(pro)
                         .futurePlanning(pro)
                         .weekdayGoals(pro)
                         .adaptiveCalories(pro)
+                        .build())
+                .build();
+    }
+
+    private boolean hasLifetimeProRole(Long userId) {
+        if (userId == null) {
+            return false;
+        }
+        return userRepository.findById(userId)
+                .map(user -> user.getRoles().contains(UserRole.ADMIN)
+                        || user.getRoles().contains(UserRole.VIP))
+                .orElse(false);
+    }
+
+    private EntitlementResponseDto buildLifetimeProEntitlement(Long userId) {
+        ZonedDateTime now = ZonedDateTime.now(properties.getQuotaZone());
+        ScanQuotaWindow scanQuotaWindow = scanQuotaWindow(userId, true, now);
+        int used = parseUsage(redisTemplate.opsForValue().get(scanQuotaWindow.key()));
+        return EntitlementResponseDto.builder()
+                .plan(LIFETIME_PLAN)
+                .state(SubscriptionStatus.PRO_ACTIVE)
+                .validUntil(null)
+                .legacyAccess(false)
+                .features(EntitlementResponseDto.Features.builder()
+                        .nutritionLabelScans(EntitlementResponseDto.ScanAllowance.builder()
+                                .limit(scanQuotaWindow.limit())
+                                .remaining(Math.max(0, scanQuotaWindow.limit() - used))
+                                .resetAt(scanQuotaWindow.resetAt())
+                                .build())
+                        .advancedInsights(true)
+                        .futurePlanning(true)
+                        .weekdayGoals(true)
+                        .adaptiveCalories(true)
                         .build())
                 .build();
     }
