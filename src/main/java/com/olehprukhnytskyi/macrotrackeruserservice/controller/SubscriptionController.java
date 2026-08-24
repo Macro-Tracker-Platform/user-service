@@ -23,21 +23,28 @@ public class SubscriptionController {
     @PostMapping("/api/subscriptions/google/verify")
     public ResponseEntity<EntitlementResponseDto> verify(
             @RequestHeader(CustomHeaders.X_USER_ID) Long userId,
+            @RequestHeader(value = CustomHeaders.X_USER_ROLES, required = false)
+            String userRoles,
             @RequestBody @Valid GooglePurchaseDto purchase) {
-        return ResponseEntity.ok(subscriptionService.verify(userId, purchase));
+        return ResponseEntity.ok(subscriptionService.verify(userId, purchase, userRoles));
     }
 
     @PostMapping("/api/subscriptions/google/restore")
     public ResponseEntity<EntitlementResponseDto> restore(
             @RequestHeader(CustomHeaders.X_USER_ID) Long userId,
+            @RequestHeader(value = CustomHeaders.X_USER_ROLES, required = false)
+            String userRoles,
             @RequestBody @Valid RestoreGooglePurchasesRequestDto request) {
-        return ResponseEntity.ok(subscriptionService.restore(userId, request.getPurchases()));
+        return ResponseEntity.ok(subscriptionService.restore(
+                userId, request.getPurchases(), userRoles));
     }
 
     @GetMapping("/api/users/me/entitlements")
     public ResponseEntity<EntitlementResponseDto> entitlement(
-            @RequestHeader(CustomHeaders.X_USER_ID) Long userId) {
-        return ResponseEntity.ok(subscriptionService.getEntitlement(userId));
+            @RequestHeader(CustomHeaders.X_USER_ID) Long userId,
+            @RequestHeader(value = CustomHeaders.X_USER_ROLES, required = false)
+            String userRoles) {
+        return ResponseEntity.ok(subscriptionService.getEntitlement(userId, userRoles));
     }
 
     @PostMapping("/internal/google-play/rtdn")

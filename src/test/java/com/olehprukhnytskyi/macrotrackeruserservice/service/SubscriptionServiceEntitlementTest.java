@@ -84,6 +84,18 @@ class SubscriptionServiceEntitlementTest {
     }
 
     @Test
+    void adminRoleHeaderGetsLifetimeProEntitlementWithoutDatabaseRole() {
+        EntitlementResponseDto entitlement = subscriptionService
+                .getEntitlement(USER_ID, "USER,ADMIN");
+
+        assertThat(entitlement.getPlan()).isEqualTo("PRO");
+        assertThat(entitlement.getState()).isEqualTo(SubscriptionStatus.PRO_ACTIVE);
+        assertThat(entitlement.getValidUntil()).isNull();
+        assertThat(entitlement.getFeatures().isAdvancedInsights()).isTrue();
+        assertThat(entitlement.getFeatures().isFuturePlanning()).isTrue();
+    }
+
+    @Test
     void adminGetsLifetimeProEntitlementWithoutSubscription() {
         User admin = new User();
         admin.addRole(UserRole.ADMIN);
@@ -149,7 +161,7 @@ class SubscriptionServiceEntitlementTest {
         when(subscriptionRepository.findByUserIdOrderByExpiresAtDesc(USER_ID))
                 .thenReturn(List.of(existing));
 
-        EntitlementResponseDto entitlement = subscriptionService.verify(USER_ID, purchase);
+        EntitlementResponseDto entitlement = subscriptionService.verify(USER_ID, purchase, null);
 
         assertThat(existing.getUserId()).isEqualTo(USER_ID);
         assertThat(entitlement.getPlan()).isEqualTo("PRO");

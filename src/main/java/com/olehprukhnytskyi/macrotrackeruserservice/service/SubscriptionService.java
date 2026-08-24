@@ -20,6 +20,7 @@ import java.time.ZonedDateTime;
 import java.util.Base64;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
@@ -48,7 +49,8 @@ public class SubscriptionService {
     private final ObjectMapper objectMapper;
 
     @Transactional
-    public EntitlementResponseDto verify(Long userId, GooglePurchaseDto purchase) {
+    public EntitlementResponseDto verify(Long userId, GooglePurchaseDto purchase,
+                                         String userRolesHeader) {
         GooglePlaySubscriptionSnapshot snapshot = googlePlayApiClient
                 .getSubscription(purchase.getPurchaseToken());
         validateProduct(purchase.getProductId(), snapshot.productId());
@@ -67,20 +69,26 @@ public class SubscriptionService {
             subscription.setAcknowledged(true);
         }
         subscriptionRepository.save(subscription);
-        return getEntitlement(userId);
+        return getEntitlement(userId, userRolesHeader);
     }
 
     @Transactional
-    public EntitlementResponseDto restore(Long userId, List<GooglePurchaseDto> purchases) {
+    public EntitlementResponseDto restore(Long userId, List<GooglePurchaseDto> purchases,
+                                          String userRolesHeader) {
         for (GooglePurchaseDto purchase : purchases) {
-            verify(userId, purchase);
+            verify(userId, purchase, userRolesHeader);
         }
-        return getEntitlement(userId);
+        return getEntitlement(userId, userRolesHeader);
     }
 
     @Transactional(readOnly = true)
     public EntitlementResponseDto getEntitlement(Long userId) {
-        if (hasLifetimeProRole(userId)) {
+        return getEntitlement(userId, null);
+    }
+
+    @Transactional(readOnly = true)
+    public EntitlementResponseDto getEntitlement(Long userId, String userRolesHeader) {
+        if (hasLifetimeProRole(userId, userRolesHeader)) {
             return buildLifetimeProEntitlement(userId);
         }
 
@@ -115,7 +123,10 @@ public class SubscriptionService {
                 .build();
     }
 
-    private boolean hasLifetimeProRole(Long userId) {
+    private boolean hasLifetimeProRole(Long userId, String userRolesHeader) {
+        if (hasLifetimeProRole(userRolesHeader)) {
+            return true;
+        }
         if (userId == null) {
             return false;
         }
@@ -123,6 +134,20 @@ public class SubscriptionService {
                 .map(user -> user.getRoles().contains(UserRole.ADMIN)
                         || user.getRoles().contains(UserRole.VIP))
                 .orElse(false);
+    }
+
+    private boolean hasLifetimeProRole(String userRolesHeader) {
+        if (userRolesHeader == null || userRolesHeader.isBlank()) {
+            return false;
+        }
+        for (String role : userRolesHeader.split(",")) {
+            String normalized = role.trim().toUpperCase(Locale.ROOT);
+            if (UserRole.ADMIN.name().equals(normalized)
+                    || UserRole.VIP.name().equals(normalized)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private EntitlementResponseDto buildLifetimeProEntitlement(Long userId) {
