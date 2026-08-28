@@ -1,7 +1,9 @@
 package com.olehprukhnytskyi.macrotrackeruserservice.service;
 
+import com.olehprukhnytskyi.exception.NotFoundException;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.PromoCodeRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.PromoCodeResponseDto;
+import com.olehprukhnytskyi.macrotrackeruserservice.exception.PromoCodeErrorCode;
 import com.olehprukhnytskyi.macrotrackeruserservice.model.PromoCode;
 import com.olehprukhnytskyi.macrotrackeruserservice.model.PromoCodeClaim;
 import com.olehprukhnytskyi.macrotrackeruserservice.model.Subscription;
@@ -117,8 +119,9 @@ public class PromoCodeService {
         return value == null || value.isBlank();
     }
 
-    private ResponseStatusException invalidCode() {
-        return new ResponseStatusException(
-                HttpStatus.NOT_FOUND, "Promo code is invalid or no longer available");
+    private NotFoundException invalidCode() {
+        return new NotFoundException(
+                PromoCodeErrorCode.PROMO_CODE_INVALID,
+                "Promo code is invalid or no longer available");
     }
 }

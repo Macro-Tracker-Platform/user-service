@@ -1,11 +1,14 @@
 package com.olehprukhnytskyi.macrotrackeruserservice.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.olehprukhnytskyi.exception.NotFoundException;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.PromoCodeRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.PromoCodeResponseDto;
+import com.olehprukhnytskyi.macrotrackeruserservice.exception.PromoCodeErrorCode;
 import com.olehprukhnytskyi.macrotrackeruserservice.model.PromoCode;
 import com.olehprukhnytskyi.macrotrackeruserservice.model.PromoCodeClaim;
 import com.olehprukhnytskyi.macrotrackeruserservice.model.Subscription;
@@ -67,6 +70,19 @@ class PromoCodeServiceTest {
         assertThat(claim.getValue().getUserId()).isEqualTo(USER_ID);
         assertThat(claim.getValue().getExpiresAt())
                 .isAfter(claim.getValue().getClaimedAt());
+    }
+
+    @Test
+    void unknownCodeReturnsExpectedNotFoundError() {
+        PromoCodeRequestDto request = new PromoCodeRequestDto();
+        request.setCode("UNKNOWN");
+        when(promoCodeRepository.findByCodeIgnoreCase("UNKNOWN"))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> promoCodeService.validateAndClaim(USER_ID, request))
+                .isInstanceOf(NotFoundException.class)
+                .satisfies(error -> assertThat(((NotFoundException) error).getErrorCode())
+                        .isEqualTo(PromoCodeErrorCode.PROMO_CODE_INVALID));
     }
 
     @Test
