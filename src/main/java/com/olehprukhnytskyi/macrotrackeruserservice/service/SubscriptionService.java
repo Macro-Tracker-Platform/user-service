@@ -44,6 +44,7 @@ public class SubscriptionService {
     private final GooglePlayApiClient googlePlayApiClient;
     private final GooglePubSubTokenVerifier pubSubTokenVerifier;
     private final PurchaseTokenCipher tokenCipher;
+    private final PromoCodeService promoCodeService;
     private final GooglePlayProperties properties;
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
@@ -55,15 +56,21 @@ public class SubscriptionService {
                 .getSubscription(purchase.getPurchaseToken());
         validateProduct(purchase.getProductId(), snapshot.productId());
         String hash = tokenCipher.hash(purchase.getPurchaseToken());
-        Subscription subscription = subscriptionRepository.findByPurchaseTokenHash(hash)
-                .map(existing -> keepWithLatestUser(existing, userId))
-                .orElseGet(() -> Subscription.builder()
+        Subscription existing = subscriptionRepository.findByPurchaseTokenHash(hash)
+                .orElse(null);
+        boolean newPurchase = existing == null;
+        Subscription subscription = existing == null
+                ? Subscription.builder()
                         .userId(userId)
                         .provider(PROVIDER)
                         .purchaseTokenHash(hash)
                         .purchaseTokenEncrypted(tokenCipher.encrypt(purchase.getPurchaseToken()))
-                        .build());
+                        .build()
+                : keepWithLatestUser(existing, userId);
         applySnapshot(subscription, snapshot);
+        if (newPurchase) {
+            promoCodeService.attributeNewPurchase(subscription, userId, snapshot);
+        }
         if (!snapshot.acknowledged() && grantsPro(subscription.getStatus())) {
             googlePlayApiClient.acknowledge(snapshot.productId(), purchase.getPurchaseToken());
             subscription.setAcknowledged(true);
@@ -256,6 +263,7 @@ public class SubscriptionService {
                                GooglePlaySubscriptionSnapshot snapshot) {
         subscription.setProductId(snapshot.productId());
         subscription.setBasePlanId(snapshot.basePlanId());
+        subscription.setOfferId(snapshot.offerId());
         subscription.setStatus(mapStatus(snapshot));
         subscription.setStartedAt(snapshot.startedAt());
         subscription.setExpiresAt(snapshot.expiresAt());

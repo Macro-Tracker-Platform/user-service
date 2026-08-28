@@ -46,9 +46,11 @@ public class GooglePlayApiClient {
         JsonNode lineItem = response.path("lineItems").get(0);
         JsonNode autoRenewingPlan = lineItem.path("autoRenewingPlan");
         String basePlanId = nullableText(lineItem.path("offerDetails").path("basePlanId"));
+        String offerId = nullableText(lineItem.path("offerDetails").path("offerId"));
         return new GooglePlaySubscriptionSnapshot(
                 lineItem.path("productId").asText(),
                 basePlanId,
+                offerId,
                 response.path("subscriptionState").asText(),
                 parseInstant(response.path("startTime")),
                 parseInstant(lineItem.path("expiryTime")),

@@ -3,7 +3,10 @@ package com.olehprukhnytskyi.macrotrackeruserservice.controller;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.EntitlementResponseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.GooglePurchaseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.GoogleRtdnRequestDto;
+import com.olehprukhnytskyi.macrotrackeruserservice.dto.PromoCodeRequestDto;
+import com.olehprukhnytskyi.macrotrackeruserservice.dto.PromoCodeResponseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.RestoreGooglePurchasesRequestDto;
+import com.olehprukhnytskyi.macrotrackeruserservice.service.PromoCodeService;
 import com.olehprukhnytskyi.macrotrackeruserservice.service.SubscriptionService;
 import com.olehprukhnytskyi.util.CustomHeaders;
 import jakarta.validation.Valid;
@@ -19,6 +22,14 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class SubscriptionController {
     private final SubscriptionService subscriptionService;
+    private final PromoCodeService promoCodeService;
+
+    @PostMapping("/api/subscriptions/promo-codes/validate")
+    public ResponseEntity<PromoCodeResponseDto> validatePromoCode(
+            @RequestHeader(CustomHeaders.X_USER_ID) Long userId,
+            @RequestBody @Valid PromoCodeRequestDto request) {
+        return ResponseEntity.ok(promoCodeService.validateAndClaim(userId, request));
+    }
 
     @PostMapping("/api/subscriptions/google/verify")
     public ResponseEntity<EntitlementResponseDto> verify(

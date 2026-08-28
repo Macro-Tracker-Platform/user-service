@@ -1,0 +1,170 @@
+databaseChangeLog:
+  - changeSet:
+      id: 14-create-promo-codes
+      author: codex
+      changes:
+        - createTable:
+            tableName: promo_codes
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: code
+                  type: VARCHAR(64)
+                  constraints:
+                    nullable: false
+                    unique: true
+              - column:
+                  name: partner_name
+                  type: VARCHAR(255)
+              - column:
+                  name: commission_percent
+                  type: DECIMAL(5,2)
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+              - column:
+                  name: discount_percent
+                  type: INTEGER
+                  constraints:
+                    nullable: false
+              - column:
+                  name: monthly_offer_id
+                  type: VARCHAR(255)
+              - column:
+                  name: yearly_offer_id
+                  type: VARCHAR(255)
+              - column:
+                  name: active
+                  type: BOOLEAN
+                  defaultValueBoolean: true
+                  constraints:
+                    nullable: false
+              - column:
+                  name: valid_from
+                  type: TIMESTAMP WITH TIME ZONE
+              - column:
+                  name: valid_until
+                  type: TIMESTAMP WITH TIME ZONE
+              - column:
+                  name: max_redemptions
+                  type: INTEGER
+              - column:
+                  name: created_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  constraints:
+                    nullable: false
+        - addColumn:
+            tableName: subscriptions
+            columns:
+              - column:
+                  name: offer_id
+                  type: VARCHAR(255)
+              - column:
+                  name: promo_code_id
+                  type: BIGINT
+              - column:
+                  name: promo_code_applied_at
+                  type: TIMESTAMP WITH TIME ZONE
+        - addForeignKeyConstraint:
+            baseTableName: subscriptions
+            baseColumnNames: promo_code_id
+            referencedTableName: promo_codes
+            referencedColumnNames: id
+            constraintName: fk_subscriptions_promo_code
+            onDelete: SET NULL
+        - createIndex:
+            tableName: subscriptions
+            indexName: idx_subscriptions_promo_code
+            columns:
+              - column:
+                  name: promo_code_id
+        - createTable:
+            tableName: promo_code_claims
+            columns:
+              - column:
+                  name: user_id
+                  type: BIGINT
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: promo_code_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: claimed_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  constraints:
+                    nullable: false
+              - column:
+                  name: expires_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: promo_code_claims
+            baseColumnNames: user_id
+            referencedTableName: users
+            referencedColumnNames: id
+            constraintName: fk_promo_claims_user
+            onDelete: CASCADE
+        - addForeignKeyConstraint:
+            baseTableName: promo_code_claims
+            baseColumnNames: promo_code_id
+            referencedTableName: promo_codes
+            referencedColumnNames: id
+            constraintName: fk_promo_claims_code
+            onDelete: CASCADE
+        - createIndex:
+            tableName: promo_code_claims
+            indexName: idx_promo_claims_expiry
+            columns:
+              - column:
+                  name: expires_at
+  - changeSet:
+      id: 14-create-case-insensitive-promo-code-index
+      author: codex
+      dbms: postgresql
+      changes:
+        - sql:
+            sql: >-
+              CREATE UNIQUE INDEX uq_promo_codes_upper_code
+              ON promo_codes (UPPER(code))
+  - changeSet:
+      id: 14-create-promo-code-performance-view
+      author: codex
+      dbms: postgresql
+      changes:
+        - sql:
+            sql: >-
+              CREATE VIEW promo_code_performance AS
+              SELECT pc.id AS promo_code_id,
+                     pc.code,
+                     pc.partner_name,
+                     pc.commission_percent,
+                     pc.discount_percent,
+                     COUNT(DISTINCT s.user_id) AS total_subscribers,
+                     COUNT(DISTINCT CASE WHEN s.status IN
+                       ('PRO_ACTIVE', 'PRO_GRACE_PERIOD', 'PRO_CANCELED_BUT_ACTIVE')
+                       AND (s.expires_at IS NULL OR s.expires_at > CURRENT_TIMESTAMP)
+                       THEN s.user_id END) AS active_subscribers,
+                     COUNT(DISTINCT CASE WHEN s.base_plan_id = 'monthly'
+                       THEN s.user_id END) AS monthly_subscribers,
+                     COUNT(DISTINCT CASE WHEN s.base_plan_id = 'yearly'
+                       THEN s.user_id END) AS yearly_subscribers
+              FROM promo_codes pc
+              LEFT JOIN subscriptions s ON s.promo_code_id = pc.id
+              GROUP BY pc.id, pc.code, pc.partner_name,
+                       pc.commission_percent, pc.discount_percent

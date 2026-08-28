@@ -45,6 +45,8 @@ class SubscriptionServiceEntitlementTest {
     @Mock
     private PurchaseTokenCipher tokenCipher;
     @Mock
+    private PromoCodeService promoCodeService;
+    @Mock
     private StringRedisTemplate redisTemplate;
     @Mock
     private ValueOperations<String, String> valueOperations;
@@ -67,6 +69,7 @@ class SubscriptionServiceEntitlementTest {
                 googlePlayApiClient,
                 pubSubTokenVerifier,
                 tokenCipher,
+                promoCodeService,
                 googlePlayProperties,
                 redisTemplate,
                 new ObjectMapper());
@@ -149,6 +152,7 @@ class SubscriptionServiceEntitlementTest {
         GooglePlaySubscriptionSnapshot snapshot = new GooglePlaySubscriptionSnapshot(
                 "macro_tracker_pro",
                 "monthly",
+                null,
                 "SUBSCRIPTION_STATE_ACTIVE",
                 Instant.now().minusSeconds(60),
                 expiresAt,
