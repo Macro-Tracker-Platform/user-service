@@ -8,7 +8,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
-import java.math.BigDecimal;
 import java.time.Instant;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -31,14 +30,7 @@ public class PromoCode {
     @Column(nullable = false, unique = true, length = 64)
     private String code;
 
-    private String insertAffiliateId;
-
-    private String insertAffiliateShortCode;
-
     private String partnerName;
-
-    @Column(nullable = false, precision = 5, scale = 2)
-    private BigDecimal commissionPercent;
 
     @Column(nullable = false)
     private Integer discountPercent;

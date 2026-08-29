@@ -12,8 +12,6 @@ public interface PromoCodeRepository extends JpaRepository<PromoCode, Long> {
     @Query("select p from PromoCode p where upper(p.code) = upper(:code)")
     Optional<PromoCode> findByCodeIgnoreCase(@Param("code") String code);
 
-    Optional<PromoCode> findByInsertAffiliateId(String insertAffiliateId);
-
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select p from PromoCode p where p.id = :id")
     Optional<PromoCode> findByIdForUpdate(@Param("id") Long id);

@@ -1,0 +1,21 @@
+databaseChangeLog:
+  - changeSet:
+      id: 18-drop-promo-code-performance-view
+      author: codex
+      dbms: postgresql
+      changes:
+        - sql:
+            sql: DROP VIEW IF EXISTS promo_code_performance
+  - changeSet:
+      id: 18-remove-insert-affiliate-sync-fields
+      author: codex
+      dbms: postgresql
+      changes:
+        - sql:
+            sql: DROP INDEX IF EXISTS idx_promo_codes_insert_affiliate_id
+        - sql:
+            sql: ALTER TABLE promo_codes DROP COLUMN IF EXISTS insert_affiliate_id
+        - sql:
+            sql: ALTER TABLE promo_codes DROP COLUMN IF EXISTS insert_affiliate_short_code
+        - sql:
+            sql: ALTER TABLE promo_codes DROP COLUMN IF EXISTS commission_percent

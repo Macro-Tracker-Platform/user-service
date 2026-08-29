@@ -15,7 +15,6 @@ import com.olehprukhnytskyi.macrotrackeruserservice.model.Subscription;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.PromoCodeClaimRepository;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.PromoCodeRepository;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.SubscriptionRepository;
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -46,7 +45,6 @@ class PromoCodeServiceTest {
         promoCode = PromoCode.builder()
                 .id(5L)
                 .code("FRIEND20")
-                .commissionPercent(new BigDecimal("15.00"))
                 .discountPercent(20)
                 .monthlyOfferId("partner-20-monthly")
                 .yearlyOfferId("partner-20-yearly")

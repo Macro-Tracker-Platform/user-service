@@ -34,4 +34,4 @@ databaseChangeLog:
   - include:
       file: db/changelog/changes/16-move-subscription-state-to-entitlements.yaml
   - include:
-      file: db/changelog/changes/17-add-insert-affiliate-fields-to-promo-codes.yaml
+      file: db/changelog/changes/18-remove-insert-affiliate-backend-sync.yaml
