@@ -33,3 +33,5 @@ databaseChangeLog:
       file: db/changelog/changes/15-add-revenuecat-subscription-state.yaml
   - include:
       file: db/changelog/changes/16-move-subscription-state-to-entitlements.yaml
+  - include:
+      file: db/changelog/changes/17-add-insert-affiliate-fields-to-promo-codes.yaml

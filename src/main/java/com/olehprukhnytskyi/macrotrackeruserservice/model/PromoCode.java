@@ -31,6 +31,10 @@ public class PromoCode {
     @Column(nullable = false, unique = true, length = 64)
     private String code;
 
+    private String insertAffiliateId;
+
+    private String insertAffiliateShortCode;
+
     private String partnerName;
 
     @Column(nullable = false, precision = 5, scale = 2)
