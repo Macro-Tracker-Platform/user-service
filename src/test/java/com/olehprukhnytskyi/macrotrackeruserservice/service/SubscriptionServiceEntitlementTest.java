@@ -11,9 +11,11 @@ import com.olehprukhnytskyi.macrotrackeruserservice.dto.EntitlementResponseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.GooglePurchaseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.model.Subscription;
 import com.olehprukhnytskyi.macrotrackeruserservice.model.User;
+import com.olehprukhnytskyi.macrotrackeruserservice.model.UserEntitlement;
 import com.olehprukhnytskyi.macrotrackeruserservice.properties.GooglePlayProperties;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.BillingEventRepository;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.SubscriptionRepository;
+import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.UserEntitlementRepository;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.UserRepository;
 import com.olehprukhnytskyi.macrotrackeruserservice.util.SubscriptionStatus;
 import com.olehprukhnytskyi.util.UserRole;
@@ -36,6 +38,8 @@ class SubscriptionServiceEntitlementTest {
     private SubscriptionRepository subscriptionRepository;
     @Mock
     private UserRepository userRepository;
+    @Mock
+    private UserEntitlementRepository entitlementRepository;
     @Mock
     private BillingEventRepository billingEventRepository;
     @Mock
@@ -65,6 +69,7 @@ class SubscriptionServiceEntitlementTest {
         subscriptionService = new SubscriptionService(
                 subscriptionRepository,
                 userRepository,
+                entitlementRepository,
                 billingEventRepository,
                 googlePlayApiClient,
                 pubSubTokenVerifier,
@@ -83,6 +88,46 @@ class SubscriptionServiceEntitlementTest {
         assertThat(entitlement.isLegacyAccess()).isFalse();
         assertThat(entitlement.getFeatures().getNutritionLabelScans().getLimit())
                 .isEqualTo(3);
+        assertThat(entitlement.getFeatures().isAdvancedInsights()).isFalse();
+    }
+
+    @Test
+    void revenueCatSubscribedUserGetsProEntitlement() {
+        UserEntitlement revenueCatEntitlement = UserEntitlement.builder()
+                .userId(USER_ID)
+                .subscribed(true)
+                .subscriptionEventTimestampMs(1000L)
+                .build();
+        when(entitlementRepository.findById(USER_ID))
+                .thenReturn(Optional.of(revenueCatEntitlement));
+
+        EntitlementResponseDto entitlement = subscriptionService.getEntitlement(USER_ID);
+
+        assertThat(entitlement.getPlan()).isEqualTo("PRO");
+        assertThat(entitlement.getState()).isEqualTo(SubscriptionStatus.PRO_ACTIVE);
+        assertThat(entitlement.getFeatures().isAdvancedInsights()).isTrue();
+    }
+
+    @Test
+    void revenueCatExpirationOverridesLegacySubscription() {
+        UserEntitlement revenueCatEntitlement = UserEntitlement.builder()
+                .userId(USER_ID)
+                .subscribed(false)
+                .subscriptionEventTimestampMs(2000L)
+                .build();
+        when(entitlementRepository.findById(USER_ID))
+                .thenReturn(Optional.of(revenueCatEntitlement));
+        Subscription legacy = Subscription.builder()
+                .userId(USER_ID)
+                .status(SubscriptionStatus.PRO_ACTIVE)
+                .expiresAt(Instant.now().plusSeconds(3600))
+                .build();
+        lenient().when(subscriptionRepository.findByUserIdOrderByExpiresAtDesc(USER_ID))
+                .thenReturn(List.of(legacy));
+
+        EntitlementResponseDto entitlement = subscriptionService.getEntitlement(USER_ID);
+
+        assertThat(entitlement.getPlan()).isEqualTo("FREE");
         assertThat(entitlement.getFeatures().isAdvancedInsights()).isFalse();
     }
 

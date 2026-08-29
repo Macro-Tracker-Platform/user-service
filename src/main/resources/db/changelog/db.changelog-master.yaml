@@ -29,3 +29,7 @@ databaseChangeLog:
       file: db/changelog/changes/13-adjust-auto-water-goal.yaml
   - include:
       file: db/changelog/changes/14-create-promo-codes.yaml
+  - include:
+      file: db/changelog/changes/15-add-revenuecat-subscription-state.yaml
+  - include:
+      file: db/changelog/changes/16-move-subscription-state-to-entitlements.yaml

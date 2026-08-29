@@ -1,0 +1,46 @@
+databaseChangeLog:
+  - changeSet:
+      id: 16-move-subscription-state-to-entitlements
+      author: codex
+      changes:
+        - createTable:
+            tableName: user_entitlements
+            columns:
+              - column:
+                  name: user_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    primaryKey: true
+                    primaryKeyName: user_entitlements_pkey
+              - column:
+                  name: is_subscribed
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
+              - column:
+                  name: subscription_event_timestamp_ms
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: user_entitlements
+            baseColumnNames: user_id
+            referencedTableName: users
+            referencedColumnNames: id
+            constraintName: fk_user_entitlements_user
+            onDelete: CASCADE
+        - sql:
+            sql: >-
+              INSERT INTO user_entitlements
+              (user_id, is_subscribed, subscription_event_timestamp_ms)
+              SELECT id, is_subscribed, subscription_event_timestamp_ms
+              FROM users
+              WHERE subscription_event_timestamp_ms IS NOT NULL
+        - dropColumn:
+            tableName: users
+            columnName: subscription_event_timestamp_ms
+        - dropColumn:
+            tableName: users
+            columnName: is_subscribed

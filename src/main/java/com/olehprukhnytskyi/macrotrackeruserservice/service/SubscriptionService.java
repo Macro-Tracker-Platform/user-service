@@ -7,9 +7,11 @@ import com.olehprukhnytskyi.macrotrackeruserservice.dto.GooglePurchaseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.GoogleRtdnRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.model.BillingEvent;
 import com.olehprukhnytskyi.macrotrackeruserservice.model.Subscription;
+import com.olehprukhnytskyi.macrotrackeruserservice.model.UserEntitlement;
 import com.olehprukhnytskyi.macrotrackeruserservice.properties.GooglePlayProperties;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.BillingEventRepository;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.SubscriptionRepository;
+import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.UserEntitlementRepository;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.UserRepository;
 import com.olehprukhnytskyi.macrotrackeruserservice.util.SubscriptionStatus;
 import com.olehprukhnytskyi.util.UserRole;
@@ -40,6 +42,7 @@ public class SubscriptionService {
 
     private final SubscriptionRepository subscriptionRepository;
     private final UserRepository userRepository;
+    private final UserEntitlementRepository entitlementRepository;
     private final BillingEventRepository billingEventRepository;
     private final GooglePlayApiClient googlePlayApiClient;
     private final GooglePubSubTokenVerifier pubSubTokenVerifier;
@@ -99,12 +102,19 @@ public class SubscriptionService {
             return buildLifetimeProEntitlement(userId);
         }
 
-        Subscription subscription = subscriptionRepository
-                .findByUserIdOrderByExpiresAtDesc(userId)
-                .stream()
-                .max(Comparator.comparing(
-                        item -> item.getExpiresAt() == null ? Instant.EPOCH : item.getExpiresAt()))
-                .orElse(null);
+        UserEntitlement revenueCatEntitlement = userId == null ? null
+                : entitlementRepository.findById(userId).orElse(null);
+        boolean revenueCatManaged = revenueCatEntitlement != null;
+        if (revenueCatManaged && revenueCatEntitlement.isSubscribed()) {
+            return buildLifetimeProEntitlement(userId);
+        }
+
+        Subscription subscription = revenueCatManaged ? null : subscriptionRepository
+                    .findByUserIdOrderByExpiresAtDesc(userId)
+                    .stream()
+                    .max(Comparator.comparing(item -> item.getExpiresAt() == null
+                            ? Instant.EPOCH : item.getExpiresAt()))
+                    .orElse(null);
         SubscriptionStatus status = subscription == null
                 ? SubscriptionStatus.FREE : effectiveStatus(subscription);
         boolean pro = grantsPro(status);
