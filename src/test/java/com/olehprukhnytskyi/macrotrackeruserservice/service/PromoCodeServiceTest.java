@@ -16,6 +16,8 @@ import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.PromoCodeClai
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.PromoCodeRepository;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.SubscriptionRepository;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -81,6 +83,37 @@ class PromoCodeServiceTest {
                 .isInstanceOf(NotFoundException.class)
                 .satisfies(error -> assertThat(((NotFoundException) error).getErrorCode())
                         .isEqualTo(PromoCodeErrorCode.PROMO_CODE_INVALID));
+    }
+
+    @Test
+    void validationTreatsValidUntilTodayAsAvailableForWholeDay() {
+        promoCode.setValidUntil(Instant.now());
+        PromoCodeRequestDto request = new PromoCodeRequestDto();
+        request.setCode("FRIEND20");
+        when(promoCodeRepository.findByCodeIgnoreCase("FRIEND20"))
+                .thenReturn(Optional.of(promoCode));
+
+        PromoCodeResponseDto response = promoCodeService.validateAndClaim(USER_ID, request);
+
+        assertThat(response.getCode()).isEqualTo("FRIEND20");
+    }
+
+    @Test
+    void validationTreatsValidFromTodayAsAvailableForWholeDay() {
+        Instant laterToday = LocalDate.now(ZoneOffset.UTC)
+                .plusDays(1)
+                .atStartOfDay()
+                .minusNanos(1)
+                .toInstant(ZoneOffset.UTC);
+        promoCode.setValidFrom(laterToday);
+        PromoCodeRequestDto request = new PromoCodeRequestDto();
+        request.setCode("FRIEND20");
+        when(promoCodeRepository.findByCodeIgnoreCase("FRIEND20"))
+                .thenReturn(Optional.of(promoCode));
+
+        PromoCodeResponseDto response = promoCodeService.validateAndClaim(USER_ID, request);
+
+        assertThat(response.getCode()).isEqualTo("FRIEND20");
     }
 
     @Test

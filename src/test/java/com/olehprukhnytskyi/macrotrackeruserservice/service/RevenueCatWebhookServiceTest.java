@@ -54,6 +54,16 @@ class RevenueCatWebhookServiceTest {
     }
 
     @Test
+    void acceptsBearerAuthorizationWhenConfiguredValueIsTokenOnly() {
+        RevenueCatProperties properties = new RevenueCatProperties();
+        properties.setWebhookAuthorization("test-secret");
+        RevenueCatWebhookService tokenOnlyWebhookService = new RevenueCatWebhookService(
+                properties, userRepository, entitlementRepository, eventRepository);
+
+        tokenOnlyWebhookService.verifyAuthorization("Bearer test-secret");
+    }
+
+    @Test
     void initialPurchaseSubscribesUser() throws Exception {
         User user = new User();
         when(userRepository.findByIdForUpdate(USER_ID)).thenReturn(Optional.of(user));

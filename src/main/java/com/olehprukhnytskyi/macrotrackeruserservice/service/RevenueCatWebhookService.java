@@ -36,13 +36,26 @@ public class RevenueCatWebhookService {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
                     "RevenueCat webhook authorization is not configured");
         }
-        byte[] expectedBytes = expected.getBytes(StandardCharsets.UTF_8);
-        byte[] actualBytes = authorization == null
-                ? new byte[0] : authorization.getBytes(StandardCharsets.UTF_8);
-        if (!MessageDigest.isEqual(expectedBytes, actualBytes)) {
+        if (!isExpectedAuthorization(authorization, expected)) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,
                     "Invalid RevenueCat webhook authorization");
         }
+    }
+
+    private boolean isExpectedAuthorization(String authorization, String expected) {
+        String actual = authorization == null ? "" : authorization.strip();
+        String configured = expected.strip();
+        if (configured.regionMatches(true, 0, "Bearer ", 0, "Bearer ".length())) {
+            return secureEquals(actual, configured);
+        }
+        return secureEquals(actual, configured)
+                || secureEquals(actual, "Bearer " + configured);
+    }
+
+    private boolean secureEquals(String actual, String expected) {
+        return MessageDigest.isEqual(
+                expected.getBytes(StandardCharsets.UTF_8),
+                actual.getBytes(StandardCharsets.UTF_8));
     }
 
     @Transactional

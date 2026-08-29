@@ -12,6 +12,8 @@ import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.PromoCodeRepo
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.SubscriptionRepository;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -102,13 +104,27 @@ public class PromoCodeService {
 
     private boolean isAvailable(PromoCode promoCode, Instant now) {
         if (!promoCode.isActive()
-                || promoCode.getValidFrom() != null && promoCode.getValidFrom().isAfter(now)
-                || promoCode.getValidUntil() != null && !promoCode.getValidUntil().isAfter(now)) {
+                || isAfterToday(promoCode.getValidFrom(), now)
+                || isBeforeToday(promoCode.getValidUntil(), now)) {
             return false;
         }
-        return promoCode.getMaxRedemptions() == null
-                || subscriptionRepository.countDistinctUsersByPromoCodeId(promoCode.getId())
+        if (promoCode.getMaxRedemptions() == null) {
+            return true;
+        }
+        return subscriptionRepository.countDistinctUsersByPromoCodeId(promoCode.getId())
                 < promoCode.getMaxRedemptions();
+    }
+
+    private boolean isAfterToday(Instant value, Instant now) {
+        return value != null && toUtcDate(value).isAfter(toUtcDate(now));
+    }
+
+    private boolean isBeforeToday(Instant value, Instant now) {
+        return value != null && toUtcDate(value).isBefore(toUtcDate(now));
+    }
+
+    private LocalDate toUtcDate(Instant value) {
+        return value.atZone(ZoneOffset.UTC).toLocalDate();
     }
 
     private String normalize(String code) {
