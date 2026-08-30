@@ -72,7 +72,11 @@ public class SubscriptionService {
                 : keepWithLatestUser(existing, userId);
         applySnapshot(subscription, snapshot);
         if (newPurchase) {
-            promoCodeService.attributeNewPurchase(subscription, userId, snapshot);
+            subscriptionRepository.save(subscription);
+        }
+        if (subscription.getPromoCode() == null) {
+            promoCodeService.attributePurchase(
+                    subscription, userId, snapshot, newPurchase);
         }
         if (!snapshot.acknowledged() && grantsPro(subscription.getStatus())) {
             googlePlayApiClient.acknowledge(snapshot.productId(), purchase.getPurchaseToken());

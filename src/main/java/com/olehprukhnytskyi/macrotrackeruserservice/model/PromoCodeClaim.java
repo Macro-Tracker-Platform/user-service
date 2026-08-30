@@ -33,4 +33,10 @@ public class PromoCodeClaim {
 
     @Column(nullable = false)
     private Instant expiresAt;
+
+    private Instant consumedAt;
+
+    @ManyToOne
+    @JoinColumn(name = "subscription_id")
+    private Subscription subscription;
 }

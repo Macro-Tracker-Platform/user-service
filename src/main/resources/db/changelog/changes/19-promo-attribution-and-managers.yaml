@@ -1,0 +1,147 @@
+databaseChangeLog:
+  - changeSet:
+      id: 19-create-acquisition-managers
+      author: codex
+      changes:
+        - createTable:
+            tableName: acquisition_managers
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: name
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: email
+                  type: VARCHAR(320)
+              - column:
+                  name: commission_percent
+                  type: DECIMAL(5,2)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: active
+                  type: BOOLEAN
+                  defaultValueBoolean: true
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  constraints:
+                    nullable: false
+        - addColumn:
+            tableName: promo_codes
+            columns:
+              - column:
+                  name: acquisition_type
+                  type: VARCHAR(32)
+                  defaultValue: DIRECT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: acquisition_manager_id
+                  type: BIGINT
+        - addForeignKeyConstraint:
+            baseTableName: promo_codes
+            baseColumnNames: acquisition_manager_id
+            referencedTableName: acquisition_managers
+            referencedColumnNames: id
+            constraintName: fk_promo_codes_acquisition_manager
+            onDelete: SET NULL
+        - createIndex:
+            tableName: promo_codes
+            indexName: idx_promo_codes_acquisition_manager
+            columns:
+              - column:
+                  name: acquisition_manager_id
+        - addColumn:
+            tableName: promo_code_claims
+            columns:
+              - column:
+                  name: consumed_at
+                  type: TIMESTAMP WITH TIME ZONE
+              - column:
+                  name: subscription_id
+                  type: BIGINT
+        - addForeignKeyConstraint:
+            baseTableName: promo_code_claims
+            baseColumnNames: subscription_id
+            referencedTableName: subscriptions
+            referencedColumnNames: id
+            constraintName: fk_promo_claims_subscription
+            onDelete: SET NULL
+        - createIndex:
+            tableName: promo_code_claims
+            indexName: idx_promo_claims_subscription
+            columns:
+              - column:
+                  name: subscription_id
+        - addUniqueConstraint:
+            tableName: promo_code_claims
+            columnNames: subscription_id
+            constraintName: uq_promo_claims_subscription
+  - changeSet:
+      id: 19-create-promo-attribution-views
+      author: codex
+      dbms: postgresql
+      changes:
+        - sql:
+            sql: >-
+              CREATE VIEW promo_code_performance AS
+              SELECT pc.id AS promo_code_id,
+                     pc.code,
+                     pc.acquisition_type,
+                     pc.partner_name,
+                     pc.acquisition_manager_id,
+                     am.name AS acquisition_manager_name,
+                     am.commission_percent,
+                     COUNT(DISTINCT CASE WHEN pcc.consumed_at IS NOT NULL
+                       THEN pcc.user_id END) AS total_subscribers,
+                     COUNT(DISTINCT CASE WHEN s.status IN
+                       ('PRO_ACTIVE', 'PRO_GRACE_PERIOD', 'PRO_CANCELED_BUT_ACTIVE')
+                       AND (s.expires_at IS NULL OR s.expires_at > CURRENT_TIMESTAMP)
+                       THEN s.user_id END) AS active_subscribers,
+                     COUNT(DISTINCT CASE WHEN s.base_plan_id = 'monthly'
+                       THEN s.user_id END) AS monthly_subscribers,
+                     COUNT(DISTINCT CASE WHEN s.base_plan_id = 'yearly'
+                       THEN s.user_id END) AS yearly_subscribers
+              FROM promo_codes pc
+              LEFT JOIN acquisition_managers am
+                ON am.id = pc.acquisition_manager_id
+              LEFT JOIN promo_code_claims pcc ON pcc.promo_code_id = pc.id
+              LEFT JOIN subscriptions s ON s.promo_code_id = pc.id
+              GROUP BY pc.id, pc.code, pc.acquisition_type, pc.partner_name,
+                       pc.acquisition_manager_id, am.name, am.commission_percent
+        - sql:
+            sql: >-
+              CREATE VIEW acquisition_manager_performance AS
+              SELECT am.id AS acquisition_manager_id,
+                     am.name,
+                     am.email,
+                     am.commission_percent,
+                     am.active,
+                     COUNT(DISTINCT pc.id) AS promo_codes,
+                     COUNT(DISTINCT CASE WHEN pcc.consumed_at IS NOT NULL
+                       THEN pcc.user_id END) AS recruited_users,
+                     COUNT(DISTINCT CASE WHEN s.status IN
+                       ('PRO_ACTIVE', 'PRO_GRACE_PERIOD', 'PRO_CANCELED_BUT_ACTIVE')
+                       AND (s.expires_at IS NULL OR s.expires_at > CURRENT_TIMESTAMP)
+                       THEN s.user_id END) AS active_subscribers
+              FROM acquisition_managers am
+              LEFT JOIN promo_codes pc ON pc.acquisition_manager_id = am.id
+              LEFT JOIN promo_code_claims pcc ON pcc.promo_code_id = pc.id
+              LEFT JOIN subscriptions s ON s.promo_code_id = pc.id
+              GROUP BY am.id, am.name, am.email, am.commission_percent, am.active

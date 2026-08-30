@@ -2,6 +2,7 @@ package com.olehprukhnytskyi.macrotrackeruserservice.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -129,11 +130,13 @@ class PromoCodeServiceTest {
         when(promoCodeRepository.findByIdForUpdate(5L)).thenReturn(Optional.of(promoCode));
         GooglePlaySubscriptionSnapshot snapshot = snapshot("partner-20-monthly");
 
-        promoCodeService.attributeNewPurchase(subscription, USER_ID, snapshot);
+        promoCodeService.attributePurchase(subscription, USER_ID, snapshot, true);
 
         assertThat(subscription.getPromoCode()).isEqualTo(promoCode);
         assertThat(subscription.getPromoCodeAppliedAt()).isNotNull();
-        verify(claimRepository).delete(claim);
+        assertThat(claim.getConsumedAt()).isNotNull();
+        assertThat(claim.getSubscription()).isEqualTo(subscription);
+        verify(claimRepository).save(claim);
     }
 
     @Test
@@ -148,11 +151,55 @@ class PromoCodeServiceTest {
         when(claimRepository.findById(USER_ID)).thenReturn(Optional.of(claim));
         when(promoCodeRepository.findByIdForUpdate(5L)).thenReturn(Optional.of(promoCode));
 
-        promoCodeService.attributeNewPurchase(
-                subscription, USER_ID, snapshot("some-other-offer"));
+        promoCodeService.attributePurchase(
+                subscription, USER_ID, snapshot("some-other-offer"), true);
 
         assertThat(subscription.getPromoCode()).isNull();
-        verify(claimRepository).delete(claim);
+        assertThat(claim.getConsumedAt()).isNull();
+        verify(claimRepository, never()).save(claim);
+    }
+
+    @Test
+    void retryCanAttributeExistingPurchaseCreatedAfterClaim() {
+        Instant claimedAt = Instant.now().minusSeconds(60);
+        PromoCodeClaim claim = PromoCodeClaim.builder()
+                .userId(USER_ID)
+                .promoCode(promoCode)
+                .claimedAt(claimedAt)
+                .expiresAt(Instant.now().plusSeconds(3600))
+                .build();
+        Subscription subscription = Subscription.builder()
+                .createdAt(claimedAt.plusSeconds(10))
+                .build();
+        when(claimRepository.findById(USER_ID)).thenReturn(Optional.of(claim));
+        when(promoCodeRepository.findByIdForUpdate(5L)).thenReturn(Optional.of(promoCode));
+
+        promoCodeService.attributePurchase(
+                subscription, USER_ID, snapshot("partner-20-monthly"), false);
+
+        assertThat(subscription.getPromoCode()).isEqualTo(promoCode);
+        assertThat(claim.getConsumedAt()).isNotNull();
+    }
+
+    @Test
+    void existingPurchaseOlderThanClaimIsNotAttributedRetroactively() {
+        Instant createdAt = Instant.now().minusSeconds(120);
+        PromoCodeClaim claim = PromoCodeClaim.builder()
+                .userId(USER_ID)
+                .promoCode(promoCode)
+                .claimedAt(createdAt.plusSeconds(60))
+                .expiresAt(Instant.now().plusSeconds(3600))
+                .build();
+        Subscription subscription = Subscription.builder()
+                .createdAt(createdAt)
+                .build();
+        when(claimRepository.findById(USER_ID)).thenReturn(Optional.of(claim));
+
+        promoCodeService.attributePurchase(
+                subscription, USER_ID, snapshot("partner-20-monthly"), false);
+
+        assertThat(subscription.getPromoCode()).isNull();
+        assertThat(claim.getConsumedAt()).isNull();
     }
 
     private GooglePlaySubscriptionSnapshot snapshot(String offerId) {

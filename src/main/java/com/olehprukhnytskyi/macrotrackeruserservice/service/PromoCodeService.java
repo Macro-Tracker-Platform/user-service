@@ -38,18 +38,26 @@ public class PromoCodeService {
         PromoCode promoCode = promoCodeRepository.findByCodeIgnoreCase(normalizedCode)
                 .orElseThrow(this::invalidCode);
         requireAvailable(promoCode, Instant.now());
+        PromoCodeClaim existingClaim = claimRepository.findById(userId).orElse(null);
+        if ((existingClaim != null && existingClaim.getConsumedAt() != null)
+                || subscriptionRepository.existsByUserIdAndPromoCodeIsNotNull(userId)) {
+            throw invalidCode();
+        }
         if (isBlank(promoCode.getMonthlyOfferId())
                 && isBlank(promoCode.getYearlyOfferId())) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT, "Promo code has no Google Play offers configured");
         }
         Instant now = Instant.now();
-        claimRepository.save(PromoCodeClaim.builder()
-                .userId(userId)
-                .promoCode(promoCode)
-                .claimedAt(now)
-                .expiresAt(now.plus(CLAIM_DURATION))
-                .build());
+        PromoCodeClaim claim = existingClaim == null
+                ? PromoCodeClaim.builder().userId(userId).build()
+                : existingClaim;
+        claim.setPromoCode(promoCode);
+        claim.setClaimedAt(now);
+        claim.setExpiresAt(now.plus(CLAIM_DURATION));
+        claim.setConsumedAt(null);
+        claim.setSubscription(null);
+        claimRepository.save(claim);
         return PromoCodeResponseDto.builder()
                 .code(promoCode.getCode())
                 .discountPercent(promoCode.getDiscountPercent())
@@ -59,18 +67,22 @@ public class PromoCodeService {
     }
 
     @Transactional
-    public void attributeNewPurchase(
+    public void attributePurchase(
             Subscription subscription,
             Long userId,
-            GooglePlaySubscriptionSnapshot snapshot
+            GooglePlaySubscriptionSnapshot snapshot,
+            boolean newPurchase
     ) {
         PromoCodeClaim claim = claimRepository.findById(userId).orElse(null);
-        if (claim == null) {
+        if (claim == null || claim.getConsumedAt() != null) {
             return;
         }
-        claimRepository.delete(claim);
         Instant now = Instant.now();
         if (claim.getExpiresAt().isBefore(now)) {
+            return;
+        }
+        if (!newPurchase && subscription.getCreatedAt() != null
+                && claim.getClaimedAt().isAfter(subscription.getCreatedAt())) {
             return;
         }
         PromoCode promoCode = promoCodeRepository
@@ -84,6 +96,9 @@ public class PromoCodeService {
         }
         subscription.setPromoCode(promoCode);
         subscription.setPromoCodeAppliedAt(now);
+        claim.setConsumedAt(now);
+        claim.setSubscription(subscription);
+        claimRepository.save(claim);
     }
 
     private String offerIdForBasePlan(PromoCode promoCode, String basePlanId) {

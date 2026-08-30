@@ -35,3 +35,5 @@ databaseChangeLog:
       file: db/changelog/changes/16-move-subscription-state-to-entitlements.yaml
   - include:
       file: db/changelog/changes/18-remove-insert-affiliate-backend-sync.yaml
+  - include:
+      file: db/changelog/changes/19-promo-attribution-and-managers.yaml
