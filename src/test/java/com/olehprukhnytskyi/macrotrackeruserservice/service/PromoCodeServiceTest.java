@@ -37,6 +37,8 @@ class PromoCodeServiceTest {
     private PromoCodeClaimRepository claimRepository;
     @Mock
     private SubscriptionRepository subscriptionRepository;
+    @Mock
+    private TrialEligibilityService trialEligibilityService;
 
     private PromoCodeService promoCodeService;
     private PromoCode promoCode;
@@ -44,7 +46,8 @@ class PromoCodeServiceTest {
     @BeforeEach
     void setUp() {
         promoCodeService = new PromoCodeService(
-                promoCodeRepository, claimRepository, subscriptionRepository);
+                promoCodeRepository, claimRepository, subscriptionRepository,
+                trialEligibilityService);
         promoCode = PromoCode.builder()
                 .id(5L)
                 .code("FRIEND20")
@@ -115,6 +118,24 @@ class PromoCodeServiceTest {
         PromoCodeResponseDto response = promoCodeService.validateAndClaim(USER_ID, request);
 
         assertThat(response.getCode()).isEqualTo("FRIEND20");
+    }
+
+    @Test
+    void usedTrialRemovesTrialOfferButKeepsDiscountOnlyOffer() {
+        PromoCodeRequestDto request = new PromoCodeRequestDto();
+        request.setCode("FRIEND20");
+        when(promoCodeRepository.findByCodeIgnoreCase("FRIEND20"))
+                .thenReturn(Optional.of(promoCode));
+        when(trialEligibilityService.isEligible(USER_ID)).thenReturn(false);
+        when(trialEligibilityService.isTrialOffer("partner-20-monthly"))
+                .thenReturn(false);
+        when(trialEligibilityService.isTrialOffer("partner-20-yearly"))
+                .thenReturn(true);
+
+        PromoCodeResponseDto response = promoCodeService.validateAndClaim(USER_ID, request);
+
+        assertThat(response.getMonthlyOfferId()).isEqualTo("partner-20-monthly");
+        assertThat(response.getYearlyOfferId()).isNull();
     }
 
     @Test

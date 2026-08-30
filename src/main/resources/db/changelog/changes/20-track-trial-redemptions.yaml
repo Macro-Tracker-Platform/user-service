@@ -1,0 +1,68 @@
+databaseChangeLog:
+  - changeSet:
+      id: 20-create-subscription-trial-redemptions
+      author: codex
+      changes:
+        - createTable:
+            tableName: subscription_trial_redemptions
+            columns:
+              - column:
+                  name: user_id
+                  type: BIGINT
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: subscription_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    unique: true
+              - column:
+                  name: offer_id
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: redeemed_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: subscription_trial_redemptions
+            baseColumnNames: user_id
+            referencedTableName: users
+            referencedColumnNames: id
+            constraintName: fk_trial_redemptions_user
+            onDelete: CASCADE
+        - addForeignKeyConstraint:
+            baseTableName: subscription_trial_redemptions
+            baseColumnNames: subscription_id
+            referencedTableName: subscriptions
+            referencedColumnNames: id
+            constraintName: fk_trial_redemptions_subscription
+            onDelete: CASCADE
+        - createIndex:
+            tableName: subscription_trial_redemptions
+            indexName: idx_trial_redemptions_offer
+            columns:
+              - column:
+                  name: offer_id
+  - changeSet:
+      id: 20-backfill-known-trial-redemptions
+      author: codex
+      dbms: postgresql
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO subscription_trial_redemptions
+                (user_id, subscription_id, offer_id, redeemed_at)
+              SELECT DISTINCT ON (s.user_id)
+                     s.user_id,
+                     s.id,
+                     s.offer_id,
+                     COALESCE(s.started_at, s.created_at)
+              FROM subscriptions s
+              WHERE s.offer_id IN
+                ('yearly-21-day-trial', 'promo-20-discount-year')
+              ORDER BY s.user_id, COALESCE(s.started_at, s.created_at), s.id

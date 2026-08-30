@@ -48,6 +48,7 @@ public class SubscriptionService {
     private final GooglePubSubTokenVerifier pubSubTokenVerifier;
     private final PurchaseTokenCipher tokenCipher;
     private final PromoCodeService promoCodeService;
+    private final TrialEligibilityService trialEligibilityService;
     private final GooglePlayProperties properties;
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
@@ -74,6 +75,8 @@ public class SubscriptionService {
         if (newPurchase) {
             subscriptionRepository.save(subscription);
         }
+        trialEligibilityService.recordRedemption(
+                userId, subscription, snapshot.offerId(), newPurchase);
         if (subscription.getPromoCode() == null) {
             promoCodeService.attributePurchase(
                     subscription, userId, snapshot, newPurchase);

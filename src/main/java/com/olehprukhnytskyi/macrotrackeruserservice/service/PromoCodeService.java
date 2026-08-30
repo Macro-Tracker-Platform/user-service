@@ -31,6 +31,7 @@ public class PromoCodeService {
     private final PromoCodeRepository promoCodeRepository;
     private final PromoCodeClaimRepository claimRepository;
     private final SubscriptionRepository subscriptionRepository;
+    private final TrialEligibilityService trialEligibilityService;
 
     @Transactional
     public PromoCodeResponseDto validateAndClaim(Long userId, PromoCodeRequestDto request) {
@@ -43,10 +44,15 @@ public class PromoCodeService {
                 || subscriptionRepository.existsByUserIdAndPromoCodeIsNotNull(userId)) {
             throw invalidCode();
         }
-        if (isBlank(promoCode.getMonthlyOfferId())
-                && isBlank(promoCode.getYearlyOfferId())) {
+        boolean trialEligible = trialEligibilityService.isEligible(userId);
+        String monthlyOfferId = eligibleOfferId(
+                promoCode.getMonthlyOfferId(), trialEligible);
+        String yearlyOfferId = eligibleOfferId(
+                promoCode.getYearlyOfferId(), trialEligible);
+        if (isBlank(monthlyOfferId) && isBlank(yearlyOfferId)) {
             throw new ResponseStatusException(
-                    HttpStatus.CONFLICT, "Promo code has no Google Play offers configured");
+                    HttpStatus.CONFLICT,
+                    "Promo code has no eligible Google Play offers for this account");
         }
         Instant now = Instant.now();
         PromoCodeClaim claim = existingClaim == null
@@ -61,8 +67,8 @@ public class PromoCodeService {
         return PromoCodeResponseDto.builder()
                 .code(promoCode.getCode())
                 .discountPercent(promoCode.getDiscountPercent())
-                .monthlyOfferId(promoCode.getMonthlyOfferId())
-                .yearlyOfferId(promoCode.getYearlyOfferId())
+                .monthlyOfferId(monthlyOfferId)
+                .yearlyOfferId(yearlyOfferId)
                 .build();
     }
 
@@ -148,6 +154,13 @@ public class PromoCodeService {
 
     private boolean isBlank(String value) {
         return value == null || value.isBlank();
+    }
+
+    private String eligibleOfferId(String offerId, boolean trialEligible) {
+        if (!trialEligible && trialEligibilityService.isTrialOffer(offerId)) {
+            return null;
+        }
+        return offerId;
     }
 
     private NotFoundException invalidCode() {

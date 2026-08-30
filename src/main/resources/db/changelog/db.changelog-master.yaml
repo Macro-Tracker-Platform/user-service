@@ -37,3 +37,5 @@ databaseChangeLog:
       file: db/changelog/changes/18-remove-insert-affiliate-backend-sync.yaml
   - include:
       file: db/changelog/changes/19-promo-attribution-and-managers.yaml
+  - include:
+      file: db/changelog/changes/20-track-trial-redemptions.yaml

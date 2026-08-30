@@ -51,6 +51,8 @@ class SubscriptionServiceEntitlementTest {
     @Mock
     private PromoCodeService promoCodeService;
     @Mock
+    private TrialEligibilityService trialEligibilityService;
+    @Mock
     private StringRedisTemplate redisTemplate;
     @Mock
     private ValueOperations<String, String> valueOperations;
@@ -75,6 +77,7 @@ class SubscriptionServiceEntitlementTest {
                 pubSubTokenVerifier,
                 tokenCipher,
                 promoCodeService,
+                trialEligibilityService,
                 googlePlayProperties,
                 redisTemplate,
                 new ObjectMapper());
