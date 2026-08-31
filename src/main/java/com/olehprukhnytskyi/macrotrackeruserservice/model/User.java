@@ -48,6 +48,10 @@ public class User {
     @Column(nullable = false)
     private boolean emailConfirmed = false;
 
+    @Column(name = "food_photo_scan_credits", nullable = false,
+            columnDefinition = "integer default 5")
+    private int foodPhotoScanCredits = 5;
+
     @Column
     private String confirmationCode;
 

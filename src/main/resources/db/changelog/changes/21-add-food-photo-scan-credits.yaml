@@ -1,0 +1,22 @@
+databaseChangeLog:
+  - changeSet:
+      id: 21-add-food-photo-scan-credits
+      author: codex
+      changes:
+        - sql:
+            sql: >-
+              ALTER TABLE users ADD COLUMN food_photo_scan_credits
+              INTEGER DEFAULT 5 NOT NULL
+        - sql:
+            sql: >-
+              ALTER TABLE users
+              ADD CONSTRAINT chk_users_food_photo_scan_credits_non_negative
+              CHECK (food_photo_scan_credits >= 0)
+      rollback:
+        - sql:
+            sql: >-
+              ALTER TABLE users
+              DROP CONSTRAINT chk_users_food_photo_scan_credits_non_negative
+        - dropColumn:
+            tableName: users
+            columnName: food_photo_scan_credits
