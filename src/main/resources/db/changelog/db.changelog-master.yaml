@@ -43,3 +43,5 @@ databaseChangeLog:
       file: db/changelog/changes/21-add-food-photo-scan-credits.yaml
   - include:
       file: db/changelog/changes/22-create-food-photo-scan-consumptions.yaml
+  - include:
+      file: db/changelog/changes/23-add-voice-food-scan-credits.yaml

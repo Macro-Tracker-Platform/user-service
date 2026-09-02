@@ -52,6 +52,10 @@ public class User {
             columnDefinition = "integer default 5")
     private int foodPhotoScanCredits = 5;
 
+    @Column(name = "voice_food_scan_credits", nullable = false,
+            columnDefinition = "integer default 5")
+    private int voiceFoodScanCredits = 5;
+
     @Column
     private String confirmationCode;
 
