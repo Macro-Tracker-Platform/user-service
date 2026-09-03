@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -72,6 +73,23 @@ class BarcodeScanQuotaServiceTest {
         assertThat(first.getRemaining()).isEqualTo(2);
         assertThat(repeated.isAllowed()).isTrue();
         assertThat(repeated.getRemaining()).isEqualTo(2);
+    }
+
+    @Test
+    void ean13UpcAliasUsesSameQuotaKeyAsUpcA() {
+        when(subscriptionService.getEntitlement(USER_ID)).thenReturn(freeEntitlement());
+        when(redisTemplate.execute(
+                any(RedisScript.class), anyList(), anyString(), anyString(), anyString()))
+                .thenReturn(1L);
+
+        quotaService.reserve(USER_ID, "0036000291452");
+
+        verify(redisTemplate).execute(
+                any(RedisScript.class),
+                anyList(),
+                eq("036000291452"),
+                anyString(),
+                anyString());
     }
 
     @Test

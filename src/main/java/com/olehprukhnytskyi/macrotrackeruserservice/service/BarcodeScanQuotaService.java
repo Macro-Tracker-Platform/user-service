@@ -72,6 +72,19 @@ public class BarcodeScanQuotaService {
         if (barcode == null || barcode.isBlank()) {
             throw new IllegalArgumentException("Barcode must not be blank");
         }
-        return barcode.trim();
+        String normalized = barcode.trim();
+        if (isNumeric(normalized) && normalized.length() == 13 && normalized.startsWith("0")) {
+            return normalized.substring(1);
+        }
+        return normalized;
+    }
+
+    private boolean isNumeric(String value) {
+        for (int i = 0; i < value.length(); i++) {
+            if (!Character.isDigit(value.charAt(i))) {
+                return false;
+            }
+        }
+        return true;
     }
 }
