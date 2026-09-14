@@ -72,7 +72,7 @@ public class AuthController {
 
     @Operation(
             summary = "Social authentication",
-            description = "Authenticate using social providers (Google, Facebook, etc.)"
+            description = "Authenticate using Google or Apple"
     )
     @PostMapping("/social")
     public ResponseEntity<AuthResponseDto> authenticateWithSocial(
