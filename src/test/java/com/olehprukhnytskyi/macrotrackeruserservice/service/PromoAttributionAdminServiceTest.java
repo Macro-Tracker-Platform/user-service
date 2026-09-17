@@ -105,13 +105,15 @@ class PromoAttributionAdminServiceTest {
                 .thenReturn(25L);
         when(subscriptionRepository.countActiveUsersByAcquisitionManagerId(
                 any(), any())).thenReturn(9L);
+        when(claimRepository.countActiveAppleSubscribersByManagerId(3L))
+                .thenReturn(2L);
 
         List<AcquisitionManagerPerformanceDto> response = service.getManagerPerformance();
 
         assertThat(response).singleElement().satisfies(performance -> {
             assertThat(performance.getPromoCodes()).isEqualTo(4);
             assertThat(performance.getRecruitedUsers()).isEqualTo(25);
-            assertThat(performance.getActiveSubscribers()).isEqualTo(9);
+            assertThat(performance.getActiveSubscribers()).isEqualTo(11);
         });
     }
 }

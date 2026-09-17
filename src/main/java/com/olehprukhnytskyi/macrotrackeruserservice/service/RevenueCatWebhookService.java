@@ -29,6 +29,7 @@ public class RevenueCatWebhookService {
     private final UserRepository userRepository;
     private final UserEntitlementRepository entitlementRepository;
     private final RevenueCatEventRepository eventRepository;
+    private final PromoCodeService promoCodeService;
 
     public void verifyAuthorization(String authorization) {
         String expected = properties.getWebhookAuthorization();
@@ -68,6 +69,10 @@ public class RevenueCatWebhookService {
                     "Invalid RevenueCat webhook payload");
         }
 
+        if ("TRANSFER".equals(event.getType())) {
+            processTransfer(event);
+            return;
+        }
         Boolean subscribed = subscriptionState(event.getType());
         if (subscribed == null) {
             return;
@@ -92,6 +97,13 @@ public class RevenueCatWebhookService {
             entitlement.setSubscriptionEventTimestampMs(event.getEventTimestampMs());
             entitlementRepository.save(entitlement);
         }
+        if ("INITIAL_PURCHASE".equals(event.getType())
+                && "APP_STORE".equals(event.getStore())
+                && "INTRO".equals(event.getPeriodType())
+                && event.getPurchasedAtMs() != null) {
+            promoCodeService.attributeApplePurchase(userId, event.getProductId(),
+                    Instant.ofEpochMilli(event.getPurchasedAtMs()));
+        }
         eventRepository.save(RevenueCatEvent.builder()
                 .id(event.getId())
                 .eventType(event.getType())
@@ -99,6 +111,53 @@ public class RevenueCatWebhookService {
                 .eventTimestampMs(event.getEventTimestampMs())
                 .processedAt(Instant.now())
                 .build());
+    }
+
+    private void processTransfer(RevenueCatWebhookDto.Event event) {
+        if (event.getTransferredFrom() == null || event.getTransferredTo() == null
+                || event.getTransferredFrom().isEmpty()
+                || event.getTransferredTo().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Invalid RevenueCat transfer event");
+        }
+        if (eventRepository.existsById(event.getId())) {
+            return;
+        }
+        for (String appUserId : event.getTransferredFrom()) {
+            updateTransferredEntitlement(appUserId, false, event.getEventTimestampMs());
+        }
+        for (String appUserId : event.getTransferredTo()) {
+            updateTransferredEntitlement(appUserId, true, event.getEventTimestampMs());
+        }
+        eventRepository.save(RevenueCatEvent.builder()
+                .id(event.getId())
+                .eventType(event.getType())
+                .appUserId(event.getTransferredTo().get(0))
+                .eventTimestampMs(event.getEventTimestampMs())
+                .processedAt(Instant.now())
+                .build());
+    }
+
+    private void updateTransferredEntitlement(String appUserId, boolean subscribed,
+                                              Long eventTimestampMs) {
+        Long userId;
+        try {
+            userId = Long.valueOf(appUserId);
+        } catch (NumberFormatException | NullPointerException exception) {
+            // RevenueCat transfer arrays may also contain anonymous aliases.
+            return;
+        }
+        if (userRepository.findByIdForUpdate(userId).isEmpty()) {
+            return;
+        }
+        UserEntitlement entitlement = entitlementRepository.findById(userId)
+                .orElseGet(() -> UserEntitlement.builder().userId(userId).build());
+        Long lastTimestamp = entitlement.getSubscriptionEventTimestampMs();
+        if (lastTimestamp == null || eventTimestampMs >= lastTimestamp) {
+            entitlement.setSubscribed(subscribed);
+            entitlement.setSubscriptionEventTimestampMs(eventTimestampMs);
+            entitlementRepository.save(entitlement);
+        }
     }
 
     private Boolean subscriptionState(String eventType) {

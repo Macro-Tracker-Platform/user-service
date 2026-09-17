@@ -109,7 +109,7 @@ class AuthControllerTest {
     @Test
     @DisplayName("When user exists, should return JWT token")
     void login_whenUserExists_shouldReturnJwtToken() throws Exception {
-        // GIven
+        // Given
         LoginRequestDto requestDto = new LoginRequestDto("test@example.com", "password");
         String jsonRequest = objectMapper.writeValueAsString(requestDto);
 
@@ -140,7 +140,7 @@ class AuthControllerTest {
     @Test
     @DisplayName("When user does not exist, should return unauthorized status")
     void login_whenUserDoesNotExist_shouldReturnUnauthorized() throws Exception {
-        // GIven
+        // Given
         LoginRequestDto requestDto = new LoginRequestDto("test@example.com", "password");
         String jsonRequest = objectMapper.writeValueAsString(requestDto);
 
@@ -174,7 +174,7 @@ class AuthControllerTest {
     @Test
     @DisplayName("When user already exists, should return unauthorized status")
     void register_whenUserAlreadyExists_shouldReturnUnauthorized() throws Exception {
-        // GIven
+        // Given
         RegisterRequestDto requestDto = new RegisterRequestDto(
                 "test@example.com", "password", "password");
         requestDto.setUserDetails(userDetailsDto);
@@ -207,7 +207,7 @@ class AuthControllerTest {
     @Test
     @DisplayName("When user does not exist, should save Outbox event")
     void register_whenUserDoesNotExist_shouldSaveOutboxEvent() throws Exception {
-        // GIven
+        // Given
         RegisterRequestDto requestDto = new RegisterRequestDto(
                 "test@example.com", "password", "password");
         requestDto.setUserDetails(userDetailsDto);

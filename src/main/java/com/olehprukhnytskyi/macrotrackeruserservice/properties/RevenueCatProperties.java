@@ -7,4 +7,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "revenuecat")
 public class RevenueCatProperties {
     private String webhookAuthorization;
+    private String promoYearlyProductId;
+    private String promoMonthlyProductId;
 }

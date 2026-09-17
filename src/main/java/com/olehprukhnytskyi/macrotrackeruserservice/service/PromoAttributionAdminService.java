@@ -100,7 +100,9 @@ public class PromoAttributionAdminService {
                                 manager.getId()))
                 .activeSubscribers(subscriptionRepository
                         .countActiveUsersByAcquisitionManagerId(
-                                manager.getId(), ACTIVE_STATUSES))
+                                manager.getId(), ACTIVE_STATUSES)
+                        + claimRepository.countActiveAppleSubscribersByManagerId(
+                                manager.getId()))
                 .build();
     }
 

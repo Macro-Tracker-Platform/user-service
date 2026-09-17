@@ -15,6 +15,8 @@ public interface SubscriptionRepository extends JpaRepository<Subscription, Long
 
     boolean existsByUserIdAndPromoCodeIsNotNull(Long userId);
 
+    boolean existsByUserId(Long userId);
+
     @Query("select count(distinct s.userId) from Subscription s "
             + "where s.promoCode.id = :promoCodeId")
     long countDistinctUsersByPromoCodeId(@Param("promoCodeId") Long promoCodeId);

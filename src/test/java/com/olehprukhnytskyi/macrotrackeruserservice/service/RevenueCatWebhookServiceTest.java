@@ -34,6 +34,9 @@ class RevenueCatWebhookServiceTest {
     @Mock
     private RevenueCatEventRepository eventRepository;
 
+    @Mock
+    private PromoCodeService promoCodeService;
+
     private RevenueCatWebhookService webhookService;
     private ObjectMapper objectMapper;
 
@@ -42,7 +45,8 @@ class RevenueCatWebhookServiceTest {
         RevenueCatProperties properties = new RevenueCatProperties();
         properties.setWebhookAuthorization("Bearer test-secret");
         webhookService = new RevenueCatWebhookService(
-                properties, userRepository, entitlementRepository, eventRepository);
+                properties, userRepository, entitlementRepository, eventRepository,
+                promoCodeService);
         objectMapper = new ObjectMapper();
     }
 
@@ -58,7 +62,8 @@ class RevenueCatWebhookServiceTest {
         RevenueCatProperties properties = new RevenueCatProperties();
         properties.setWebhookAuthorization("test-secret");
         RevenueCatWebhookService tokenOnlyWebhookService = new RevenueCatWebhookService(
-                properties, userRepository, entitlementRepository, eventRepository);
+                properties, userRepository, entitlementRepository, eventRepository,
+                promoCodeService);
 
         tokenOnlyWebhookService.verifyAuthorization("Bearer test-secret");
     }
@@ -75,6 +80,37 @@ class RevenueCatWebhookServiceTest {
         assertThat(captor.getValue().isSubscribed()).isTrue();
         assertThat(captor.getValue().getSubscriptionEventTimestampMs()).isEqualTo(1000L);
         verify(eventRepository).save(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void appStorePromoPurchaseIsAttributedByProductAndPurchaseTime() throws Exception {
+        when(userRepository.findByIdForUpdate(USER_ID)).thenReturn(Optional.of(new User()));
+        String json = """
+                {"api_version":"1.0","event":{"id":"promo-1","type":"INITIAL_PURCHASE",
+                "app_user_id":"42","event_timestamp_ms":2000,"purchased_at_ms":1500,
+                "store":"APP_STORE","product_id":"yearly_promo_15","period_type":"INTRO"}}
+                """;
+
+        webhookService.process(objectMapper.readValue(json, RevenueCatWebhookDto.class));
+
+        verify(promoCodeService).attributeApplePurchase(USER_ID, "yearly_promo_15",
+                java.time.Instant.ofEpochMilli(1500));
+    }
+
+    @Test
+    void fullPricePurchaseDoesNotConsumePromoClaim() throws Exception {
+        when(userRepository.findByIdForUpdate(USER_ID)).thenReturn(Optional.of(new User()));
+        String json = """
+                {"api_version":"1.0","event":{"id":"regular-1","type":"INITIAL_PURCHASE",
+                "app_user_id":"42","event_timestamp_ms":2000,"purchased_at_ms":1500,
+                "store":"APP_STORE","product_id":"yearly_promo_15","period_type":"NORMAL"}}
+                """;
+
+        webhookService.process(objectMapper.readValue(json, RevenueCatWebhookDto.class));
+
+        verify(promoCodeService, never()).attributeApplePurchase(
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any());
     }
 
     @Test
@@ -110,6 +146,29 @@ class RevenueCatWebhookServiceTest {
 
         assertThat(entitlement.isSubscribed()).isTrue();
         verify(entitlementRepository, never()).save(any());
+    }
+
+    @Test
+    void transferMovesEntitlementToNewBackendUser() throws Exception {
+        when(userRepository.findByIdForUpdate(42L)).thenReturn(Optional.of(new User()));
+        when(userRepository.findByIdForUpdate(43L)).thenReturn(Optional.of(new User()));
+        UserEntitlement oldEntitlement = UserEntitlement.builder()
+                .userId(42L).subscribed(true).subscriptionEventTimestampMs(1000L)
+                .build();
+        when(entitlementRepository.findById(42L)).thenReturn(Optional.of(oldEntitlement));
+        String json = """
+                {"api_version":"1.0","event":{"id":"transfer-1","type":"TRANSFER",
+                "event_timestamp_ms":2000,"transferred_from":["42"],
+                "transferred_to":["43"]}}
+                """;
+
+        webhookService.process(objectMapper.readValue(json, RevenueCatWebhookDto.class));
+
+        assertThat(oldEntitlement.isSubscribed()).isFalse();
+        var captor = org.mockito.ArgumentCaptor.forClass(UserEntitlement.class);
+        verify(entitlementRepository, org.mockito.Mockito.times(2)).save(captor.capture());
+        assertThat(captor.getAllValues().get(1).getUserId()).isEqualTo(43L);
+        assertThat(captor.getAllValues().get(1).isSubscribed()).isTrue();
     }
 
     @Test

@@ -7,9 +7,11 @@ import com.olehprukhnytskyi.macrotrackeruserservice.exception.PromoCodeErrorCode
 import com.olehprukhnytskyi.macrotrackeruserservice.model.PromoCode;
 import com.olehprukhnytskyi.macrotrackeruserservice.model.PromoCodeClaim;
 import com.olehprukhnytskyi.macrotrackeruserservice.model.Subscription;
+import com.olehprukhnytskyi.macrotrackeruserservice.properties.RevenueCatProperties;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.PromoCodeClaimRepository;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.PromoCodeRepository;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.SubscriptionRepository;
+import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.UserEntitlementRepository;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -32,6 +34,8 @@ public class PromoCodeService {
     private final PromoCodeClaimRepository claimRepository;
     private final SubscriptionRepository subscriptionRepository;
     private final TrialEligibilityService trialEligibilityService;
+    private final UserEntitlementRepository entitlementRepository;
+    private final RevenueCatProperties revenueCatProperties;
 
     @Transactional
     public PromoCodeResponseDto validateAndClaim(Long userId, PromoCodeRequestDto request) {
@@ -44,15 +48,18 @@ public class PromoCodeService {
                 || subscriptionRepository.existsByUserIdAndPromoCodeIsNotNull(userId)) {
             throw invalidCode();
         }
-        boolean trialEligible = trialEligibilityService.isEligible(userId);
-        String monthlyOfferId = eligibleOfferId(
-                promoCode.getMonthlyOfferId(), trialEligible);
-        String yearlyOfferId = eligibleOfferId(
-                promoCode.getYearlyOfferId(), trialEligible);
-        if (isBlank(monthlyOfferId) && isBlank(yearlyOfferId)) {
+        String monthlyOfferId = discountOnlyOfferId(promoCode.getMonthlyOfferId());
+        String yearlyOfferId = discountOnlyOfferId(promoCode.getYearlyOfferId());
+        String appleYearlyProductId = applePromoProductId(
+                promoCode, userId, revenueCatProperties.getPromoYearlyProductId());
+        String appleMonthlyProductId = applePromoProductId(
+                promoCode, userId, revenueCatProperties.getPromoMonthlyProductId());
+        if (isBlank(monthlyOfferId) && isBlank(yearlyOfferId)
+                && isBlank(appleYearlyProductId)
+                && isBlank(appleMonthlyProductId)) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
-                    "Promo code has no eligible Google Play offers for this account");
+                    "Promo code has no eligible store offers for this account");
         }
         Instant now = Instant.now();
         PromoCodeClaim claim = existingClaim == null
@@ -69,6 +76,8 @@ public class PromoCodeService {
                 .discountPercent(promoCode.getDiscountPercent())
                 .monthlyOfferId(monthlyOfferId)
                 .yearlyOfferId(yearlyOfferId)
+                .appleYearlyProductId(appleYearlyProductId)
+                .appleMonthlyProductId(appleMonthlyProductId)
                 .build();
     }
 
@@ -84,7 +93,9 @@ public class PromoCodeService {
             return;
         }
         Instant now = Instant.now();
-        if (claim.getExpiresAt().isBefore(now)) {
+        Instant purchasedAt = snapshot.startedAt() == null ? now : snapshot.startedAt();
+        if (purchasedAt.isBefore(claim.getClaimedAt())
+                || purchasedAt.isAfter(claim.getExpiresAt())) {
             return;
         }
         if (!newPurchase && subscription.getCreatedAt() != null
@@ -93,11 +104,12 @@ public class PromoCodeService {
         }
         PromoCode promoCode = promoCodeRepository
                 .findByIdForUpdate(claim.getPromoCode().getId()).orElse(null);
-        if (promoCode == null || !isAvailable(promoCode, now)) {
+        if (promoCode == null) {
             return;
         }
         String expectedOfferId = offerIdForBasePlan(promoCode, snapshot.basePlanId());
-        if (isBlank(expectedOfferId) || !expectedOfferId.equals(snapshot.offerId())) {
+        if (isBlank(expectedOfferId) || trialEligibilityService.isTrialOffer(expectedOfferId)
+                || !expectedOfferId.equals(snapshot.offerId())) {
             return;
         }
         subscription.setPromoCode(promoCode);
@@ -133,7 +145,8 @@ public class PromoCodeService {
             return true;
         }
         return subscriptionRepository.countDistinctUsersByPromoCodeId(promoCode.getId())
-                < promoCode.getMaxRedemptions();
+                + claimRepository.countByPromoCodeIdAndConsumedAtIsNotNullAndSubscriptionIsNull(
+                        promoCode.getId()) < promoCode.getMaxRedemptions();
     }
 
     private boolean isAfterToday(Instant value, Instant now) {
@@ -156,11 +169,46 @@ public class PromoCodeService {
         return value == null || value.isBlank();
     }
 
-    private String eligibleOfferId(String offerId, boolean trialEligible) {
-        if (!trialEligible && trialEligibilityService.isTrialOffer(offerId)) {
+    @Transactional
+    public void attributeApplePurchase(Long userId, String productId, Instant purchasedAt) {
+        if (purchasedAt == null || isBlank(productId)) {
+            return;
+        }
+        PromoCodeClaim claim = claimRepository.findById(userId).orElse(null);
+        if (claim == null || claim.getConsumedAt() != null
+                || purchasedAt.isBefore(claim.getClaimedAt())
+                || purchasedAt.isAfter(claim.getExpiresAt())) {
+            return;
+        }
+        PromoCode promoCode = promoCodeRepository
+                .findByIdForUpdate(claim.getPromoCode().getId()).orElse(null);
+        if (promoCode == null) {
+            return;
+        }
+        boolean expected = promoCode.getDiscountPercent() != null
+                && promoCode.getDiscountPercent() == 15
+                && (productId.equals(revenueCatProperties.getPromoYearlyProductId())
+                    || productId.equals(revenueCatProperties.getPromoMonthlyProductId()));
+        if (!expected) {
+            return;
+        }
+        claim.setConsumedAt(Instant.now());
+        claimRepository.save(claim);
+    }
+
+    private String applePromoProductId(PromoCode promoCode, Long userId,
+                                       String productId) {
+        if (promoCode.getDiscountPercent() == null
+                || promoCode.getDiscountPercent() != 15
+                || subscriptionRepository.existsByUserId(userId)
+                || entitlementRepository.existsById(userId)) {
             return null;
         }
-        return offerId;
+        return isBlank(productId) ? null : productId;
+    }
+
+    private String discountOnlyOfferId(String offerId) {
+        return trialEligibilityService.isTrialOffer(offerId) ? null : offerId;
     }
 
     private NotFoundException invalidCode() {

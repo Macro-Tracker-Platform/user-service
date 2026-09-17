@@ -13,9 +13,11 @@ import com.olehprukhnytskyi.macrotrackeruserservice.exception.PromoCodeErrorCode
 import com.olehprukhnytskyi.macrotrackeruserservice.model.PromoCode;
 import com.olehprukhnytskyi.macrotrackeruserservice.model.PromoCodeClaim;
 import com.olehprukhnytskyi.macrotrackeruserservice.model.Subscription;
+import com.olehprukhnytskyi.macrotrackeruserservice.properties.RevenueCatProperties;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.PromoCodeClaimRepository;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.PromoCodeRepository;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.SubscriptionRepository;
+import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.UserEntitlementRepository;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
@@ -39,15 +41,20 @@ class PromoCodeServiceTest {
     private SubscriptionRepository subscriptionRepository;
     @Mock
     private TrialEligibilityService trialEligibilityService;
+    @Mock
+    private UserEntitlementRepository entitlementRepository;
 
     private PromoCodeService promoCodeService;
     private PromoCode promoCode;
 
     @BeforeEach
     void setUp() {
+        RevenueCatProperties revenueCatProperties = new RevenueCatProperties();
+        revenueCatProperties.setPromoYearlyProductId("yearly_promo_15");
+        revenueCatProperties.setPromoMonthlyProductId("monthly_promo_15");
         promoCodeService = new PromoCodeService(
                 promoCodeRepository, claimRepository, subscriptionRepository,
-                trialEligibilityService);
+                trialEligibilityService, entitlementRepository, revenueCatProperties);
         promoCode = PromoCode.builder()
                 .id(5L)
                 .code("FRIEND20")
@@ -74,6 +81,35 @@ class PromoCodeServiceTest {
         assertThat(claim.getValue().getUserId()).isEqualTo(USER_ID);
         assertThat(claim.getValue().getExpiresAt())
                 .isAfter(claim.getValue().getClaimedAt());
+    }
+
+    @Test
+    void returnsApplePromoProductForNewFifteenPercentCustomer() {
+        promoCode.setDiscountPercent(15);
+        PromoCodeRequestDto request = new PromoCodeRequestDto();
+        request.setCode("FRIEND20");
+        when(promoCodeRepository.findByCodeIgnoreCase("FRIEND20"))
+                .thenReturn(Optional.of(promoCode));
+
+        PromoCodeResponseDto response = promoCodeService.validateAndClaim(USER_ID, request);
+
+        assertThat(response.getAppleYearlyProductId()).isEqualTo("yearly_promo_15");
+        assertThat(response.getAppleMonthlyProductId()).isEqualTo("monthly_promo_15");
+    }
+
+    @Test
+    void previousSubscriptionHidesApplePromoProduct() {
+        promoCode.setDiscountPercent(15);
+        PromoCodeRequestDto request = new PromoCodeRequestDto();
+        request.setCode("FRIEND20");
+        when(promoCodeRepository.findByCodeIgnoreCase("FRIEND20"))
+                .thenReturn(Optional.of(promoCode));
+        when(subscriptionRepository.existsByUserId(USER_ID)).thenReturn(true);
+
+        PromoCodeResponseDto response = promoCodeService.validateAndClaim(USER_ID, request);
+
+        assertThat(response.getAppleYearlyProductId()).isNull();
+        assertThat(response.getAppleMonthlyProductId()).isNull();
     }
 
     @Test
@@ -121,12 +157,11 @@ class PromoCodeServiceTest {
     }
 
     @Test
-    void usedTrialRemovesTrialOfferButKeepsDiscountOnlyOffer() {
+    void promoCodeExcludesTrialOfferEvenForNewUser() {
         PromoCodeRequestDto request = new PromoCodeRequestDto();
         request.setCode("FRIEND20");
         when(promoCodeRepository.findByCodeIgnoreCase("FRIEND20"))
                 .thenReturn(Optional.of(promoCode));
-        when(trialEligibilityService.isEligible(USER_ID)).thenReturn(false);
         when(trialEligibilityService.isTrialOffer("partner-20-monthly"))
                 .thenReturn(false);
         when(trialEligibilityService.isTrialOffer("partner-20-yearly"))
@@ -158,6 +193,26 @@ class PromoCodeServiceTest {
         assertThat(claim.getConsumedAt()).isNotNull();
         assertThat(claim.getSubscription()).isEqualTo(subscription);
         verify(claimRepository).save(claim);
+    }
+
+    @Test
+    void trialOfferIsNeverAttributedAsPromoDiscount() {
+        PromoCodeClaim claim = PromoCodeClaim.builder()
+                .userId(USER_ID).promoCode(promoCode)
+                .claimedAt(Instant.now().minusSeconds(10))
+                .expiresAt(Instant.now().plusSeconds(3600)).build();
+        promoCode.setMonthlyOfferId("yearly-21-day-trial");
+        when(claimRepository.findById(USER_ID)).thenReturn(Optional.of(claim));
+        when(promoCodeRepository.findByIdForUpdate(5L)).thenReturn(Optional.of(promoCode));
+        when(trialEligibilityService.isTrialOffer("yearly-21-day-trial"))
+                .thenReturn(true);
+
+        Subscription subscription = new Subscription();
+        promoCodeService.attributePurchase(subscription, USER_ID,
+                snapshot("yearly-21-day-trial"), true);
+
+        assertThat(subscription.getPromoCode()).isNull();
+        assertThat(claim.getConsumedAt()).isNull();
     }
 
     @Test
@@ -221,6 +276,39 @@ class PromoCodeServiceTest {
 
         assertThat(subscription.getPromoCode()).isNull();
         assertThat(claim.getConsumedAt()).isNull();
+    }
+
+    @Test
+    void matchingApplePromoConsumesClaim() {
+        promoCode.setDiscountPercent(15);
+        Instant claimed = Instant.now().minusSeconds(10);
+        PromoCodeClaim claim = PromoCodeClaim.builder()
+                .userId(USER_ID).promoCode(promoCode)
+                .claimedAt(claimed).expiresAt(claimed.plusSeconds(3600)).build();
+        when(claimRepository.findById(USER_ID)).thenReturn(Optional.of(claim));
+        when(promoCodeRepository.findByIdForUpdate(5L)).thenReturn(Optional.of(promoCode));
+
+        promoCodeService.attributeApplePurchase(USER_ID, "yearly_promo_15",
+                claimed.plusSeconds(5));
+
+        assertThat(claim.getConsumedAt()).isNotNull();
+        verify(claimRepository).save(claim);
+    }
+
+    @Test
+    void unrelatedApplePurchaseDoesNotConsumeClaim() {
+        promoCode.setDiscountPercent(15);
+        Instant claimed = Instant.now().minusSeconds(10);
+        PromoCodeClaim claim = PromoCodeClaim.builder()
+                .userId(USER_ID).promoCode(promoCode)
+                .claimedAt(claimed).expiresAt(claimed.plusSeconds(3600)).build();
+        when(claimRepository.findById(USER_ID)).thenReturn(Optional.of(claim));
+        when(promoCodeRepository.findByIdForUpdate(5L)).thenReturn(Optional.of(promoCode));
+
+        promoCodeService.attributeApplePurchase(USER_ID, "yearly", claimed.plusSeconds(5));
+
+        assertThat(claim.getConsumedAt()).isNull();
+        verify(claimRepository, never()).save(claim);
     }
 
     private GooglePlaySubscriptionSnapshot snapshot(String offerId) {
