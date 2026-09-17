@@ -50,7 +50,7 @@
         <dependency>
             <groupId>com.olehprukhnytskyi</groupId>
             <artifactId>macro-tracker-common</artifactId>
-            <version>1.1.9</version>
+            <version>1.1.10</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
