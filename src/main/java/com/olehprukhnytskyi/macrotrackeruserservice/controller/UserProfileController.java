@@ -1,6 +1,7 @@
 package com.olehprukhnytskyi.macrotrackeruserservice.controller;
 
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.DatedGoalDto;
+import com.olehprukhnytskyi.macrotrackeruserservice.dto.EffectiveGoalResponseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.GoalChangeDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.GoalResponseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.GoalScheduleDto;
@@ -63,12 +64,12 @@ public class UserProfileController {
             description = "Retrieve user nutrition and water goals"
     )
     @GetMapping("/goal")
-    public ResponseEntity<GoalResponseDto> getUserGoal(
+    public ResponseEntity<EffectiveGoalResponseDto> getUserGoal(
             @RequestHeader(CustomHeaders.X_USER_ID) Long userId,
             @RequestParam(required = false) LocalDate date) {
         log.info("Fetching user goals for userId={}", userId);
-        GoalResponseDto goal = date == null ? userProfileService.findGoalByUserId(userId)
-                : goalScheduleService.resolve(userId, date);
+        EffectiveGoalResponseDto goal = goalScheduleService.resolveEffective(
+                userId, date == null ? LocalDate.now() : date);
         log.info("Fetched user goals for userId={}", userId);
         return ResponseEntity.ok(goal);
     }
@@ -113,6 +114,13 @@ public class UserProfileController {
         GoalResponseDto updatedGoal = userProfileService.updateUserGoal(requestDto, userId);
         log.info("Updated nutrition goals for userId={}", userId);
         return ResponseEntity.ok(updatedGoal);
+    }
+
+    @DeleteMapping("/goal")
+    public ResponseEntity<GoalResponseDto> useRecommendedGoal(
+            @RequestHeader(CustomHeaders.X_USER_ID) Long userId) {
+        log.info("Resetting nutrition goal to recommended for userId={}", userId);
+        return ResponseEntity.ok(goalScheduleService.useRecommended(userId));
     }
 
     @GetMapping("/goal/schedules")

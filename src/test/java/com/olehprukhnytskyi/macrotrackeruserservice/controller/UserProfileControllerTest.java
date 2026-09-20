@@ -16,13 +16,19 @@ import com.nimbusds.jose.crypto.RSASSASigner;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.olehprukhnytskyi.macrotrackeruserservice.config.AbstractRedisTest;
+import com.olehprukhnytskyi.macrotrackeruserservice.dto.EffectiveGoalResponseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.GoalResponseDto;
+import com.olehprukhnytskyi.macrotrackeruserservice.dto.GoalSource;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.UpdateGoalRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.UpdateUserDetailsRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.UpdateWaterGoalRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.UserDetailsResponseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.job.OutboxJob;
+import com.olehprukhnytskyi.macrotrackeruserservice.model.GoalHistory;
+import com.olehprukhnytskyi.macrotrackeruserservice.model.GoalSchedule;
 import com.olehprukhnytskyi.macrotrackeruserservice.model.UserProfile;
+import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.GoalHistoryRepository;
+import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.GoalScheduleRepository;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.UserProfileRepository;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.UserRepository;
 import com.olehprukhnytskyi.macrotrackeruserservice.service.UserProfileService;
@@ -35,6 +41,7 @@ import com.olehprukhnytskyi.util.Gender;
 import com.olehprukhnytskyi.util.Goal;
 import java.math.BigDecimal;
 import java.security.KeyPair;
+import java.time.LocalDate;
 import net.javacrumbs.shedlock.core.LockProvider;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
@@ -66,6 +73,10 @@ class UserProfileControllerTest extends AbstractRedisTest {
     private UserRepository userRepository;
     @MockitoSpyBean
     private UserProfileRepository userProfileRepository;
+    @Autowired
+    private GoalHistoryRepository goalHistoryRepository;
+    @Autowired
+    private GoalScheduleRepository goalScheduleRepository;
 
     @MockitoBean
     private OutboxRepository outboxRepository;
@@ -146,6 +157,10 @@ class UserProfileControllerTest extends AbstractRedisTest {
                 .waterGoalMl(2800)
                 .waterGoalMode(WaterGoalMode.AUTO)
                 .build();
+        EffectiveGoalResponseDto expectedResponse = EffectiveGoalResponseDto.builder()
+                .goal(goalResponseDto).source(GoalSource.RECOMMENDED)
+                .baseGoal(goalResponseDto).baseSource(GoalSource.RECOMMENDED)
+                .recommendedGoal(goalResponseDto).build();
 
         // When
         MvcResult mvcResult = mockMvc.perform(
@@ -156,8 +171,36 @@ class UserProfileControllerTest extends AbstractRedisTest {
                 .andReturn();
 
         // Then
-        String expected = objectMapper.writeValueAsString(goalResponseDto);
+        String expected = objectMapper.writeValueAsString(expectedResponse);
         assertEquals(expected, mvcResult.getResponse().getContentAsString());
+    }
+
+    @Test
+    @DisplayName("Schedule should override custom goal while preserving base and recommendation")
+    void getUserGoal_whenScheduleIsActive_shouldReturnFullResolution() throws Exception {
+        LocalDate today = LocalDate.now();
+        goalHistoryRepository.save(GoalHistory.builder().userId(1L)
+                .calories(5000).protein(200).fat(100).carbohydrates(825)
+                .effectiveFrom(today.minusDays(5)).build());
+        goalScheduleRepository.save(GoalSchedule.builder().userId(1L)
+                .dayOfWeek(today.getDayOfWeek())
+                .calories(2300).protein(150).fat(60).carbohydrates(290)
+                .effectiveFrom(today.minusDays(2)).build());
+
+        MvcResult mvcResult = mockMvc.perform(get("/api/profile/goal")
+                        .header(CustomHeaders.X_USER_ID, 1)
+                        .queryParam("date", today.toString()))
+                .andExpect(status().isOk()).andReturn();
+
+        EffectiveGoalResponseDto response = objectMapper.readValue(
+                mvcResult.getResponse().getContentAsString(),
+                EffectiveGoalResponseDto.class);
+        assertThat(response.getSource()).isEqualTo(GoalSource.SCHEDULE);
+        assertThat(response.getGoal().getCalories()).isEqualTo(2300);
+        assertThat(response.getBaseSource()).isEqualTo(GoalSource.CUSTOM);
+        assertThat(response.getBaseGoal().getCalories()).isEqualTo(5000);
+        assertThat(response.getRecommendedGoal().getCalories()).isEqualTo(3000);
+        assertThat(response.getScheduleDay()).isEqualTo(today.getDayOfWeek());
     }
 
     @Test
@@ -292,6 +335,10 @@ class UserProfileControllerTest extends AbstractRedisTest {
     void updateGoal_whenValidRequest_shouldUpdateAndReturn() throws Exception {
         // Given
         Long userId = 1L;
+        LocalDate today = LocalDate.now();
+        final GoalHistory previous = goalHistoryRepository.save(GoalHistory.builder()
+                .userId(userId).calories(2000).protein(100).fat(50).carbohydrates(287)
+                .effectiveFrom(today.minusDays(5)).build());
         UpdateGoalRequestDto requestDto = new UpdateGoalRequestDto();
         requestDto.setCalories(2200);
         requestDto.setProtein(120);
@@ -321,8 +368,26 @@ class UserProfileControllerTest extends AbstractRedisTest {
         String expected = objectMapper.writeValueAsString(expectedResponse);
         assertEquals(expected, mvcResult.getResponse().getContentAsString());
 
-        verify(userProfileRepository, times(3)).findById(userId);
-        verify(userProfileRepository, times(1)).save(any());
+        UserProfile profile = userProfileRepository.findById(userId).orElseThrow();
+        assertThat(profile.getCalories()).isEqualTo(3000);
+        GoalHistory old = goalHistoryRepository.findById(previous.getId()).orElseThrow();
+        assertThat(old.getEffectiveTo()).isEqualTo(today.minusDays(1));
+        GoalHistory active = goalHistoryRepository.resolve(userId, today).orElseThrow();
+        assertThat(active.getCalories()).isEqualTo(2200);
+
+        mockMvc.perform(delete("/api/profile/goal")
+                        .header(CustomHeaders.X_USER_ID, userId))
+                .andExpect(status().isOk());
+        assertThat(goalHistoryRepository.resolve(userId, today)).isEmpty();
+        MvcResult recommendedResult = mockMvc.perform(get("/api/profile/goal")
+                        .header(CustomHeaders.X_USER_ID, userId)
+                        .queryParam("date", today.toString()))
+                .andExpect(status().isOk()).andReturn();
+        EffectiveGoalResponseDto recommended = objectMapper.readValue(
+                recommendedResult.getResponse().getContentAsString(),
+                EffectiveGoalResponseDto.class);
+        assertThat(recommended.getSource()).isEqualTo(GoalSource.RECOMMENDED);
+        assertThat(recommended.getGoal().getCalories()).isEqualTo(3000);
     }
 
     @Test

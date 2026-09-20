@@ -87,22 +87,9 @@ public class UserProfileService {
     @CacheEvict(value = "userGoals", key = "#userId")
     @Transactional
     public GoalResponseDto updateUserGoal(UpdateGoalRequestDto requestDto, Long userId) {
-        UserProfile profile = findProfile(userId, "goal update");
-        if (goalScheduleService != null) {
-            goalScheduleService.snapshotDefaultBeforeChange(userId);
-        }
-        profileMapper.updateUserGoalFromDto(profile, profileMapper
-                .toUserGoalResponse(requestDto));
-        if (goalScheduleService != null) {
-            goalScheduleService.validateMacros(profile.getCalories(), profile.getProtein(),
-                    profile.getFat(), profile.getCarbohydrates());
-        }
-        userProfileRepository.save(profile);
-        if (goalScheduleService != null) {
-            goalScheduleService.snapshotDefaultAfterChange(userId);
-        }
-        log.info("User goal updated for userId={}", userId);
-        return profileMapper.toUserGoalResponse(profile);
+        GoalResponseDto goal = goalScheduleService.setCustom(userId, requestDto);
+        log.info("Custom user goal updated for userId={}", userId);
+        return goal;
     }
 
     @CacheEvict(value = "userGoals", key = "#userId")

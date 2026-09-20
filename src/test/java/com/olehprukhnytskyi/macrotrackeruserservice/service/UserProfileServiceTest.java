@@ -12,6 +12,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.olehprukhnytskyi.exception.NotFoundException;
+import com.olehprukhnytskyi.exception.error.UserErrorCode;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.GoalResponseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.UpdateGoalRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.UpdateUserDetailsRequestDto;
@@ -42,6 +43,8 @@ class UserProfileServiceTest {
     private UserProfileRepository userProfileRepository;
     @Mock
     private UserProfileMapper profileMapper;
+    @Mock
+    private GoalScheduleService goalScheduleService;
 
     @InjectMocks
     private UserProfileService userProfileService;
@@ -50,7 +53,7 @@ class UserProfileServiceTest {
     @DisplayName("When valid userId, should return user details")
     void findDetailsByUserId_whenValidUserId_shouldReturnUserDetails() {
         // Given
-        Long userId = 1L;
+        final Long userId = 1L;
         UserDetailsProjection projection = mock(UserDetailsProjection.class);
         UserDetailsResponseDto expectedDto = UserDetailsResponseDto.builder()
                 .age(25).weight(70).goalWeight(70).weeklyWeightChangeKg(java.math.BigDecimal.ZERO)
@@ -283,31 +286,22 @@ class UserProfileServiceTest {
     @DisplayName("When valid request, should update user goal and return response")
     void updateUserGoal_whenValidRequest_shouldUpdateGoal() {
         // Given
-        Long userId = 1L;
+        final Long userId = 1L;
         UpdateGoalRequestDto requestDto = new UpdateGoalRequestDto();
         requestDto.setCalories(1000);
-
-        UserProfile profile = new UserProfile();
-        profile.setId(userId);
-        profile.setWaterGoalMl(2400);
-        profile.setWaterGoalMode(WaterGoalMode.CUSTOM);
 
         GoalResponseDto expectedResponse = new GoalResponseDto();
         expectedResponse.setCalories(1000);
         expectedResponse.setWaterGoalMl(2400);
         expectedResponse.setWaterGoalMode(WaterGoalMode.CUSTOM);
-
-        when(userProfileRepository.findById(userId)).thenReturn(Optional.of(profile));
-        when(profileMapper.toUserGoalResponse(requestDto)).thenReturn(expectedResponse);
-        when(profileMapper.toUserGoalResponse(profile)).thenReturn(expectedResponse);
+        when(goalScheduleService.setCustom(userId, requestDto)).thenReturn(expectedResponse);
 
         // When
         GoalResponseDto result = userProfileService.updateUserGoal(requestDto, userId);
 
         // Then
         assertThat(result).isEqualTo(expectedResponse);
-        verify(profileMapper).updateUserGoalFromDto(eq(profile), eq(expectedResponse));
-        verify(userProfileRepository).save(profile);
+        verify(goalScheduleService).setCustom(userId, requestDto);
     }
 
     @Test
@@ -378,8 +372,9 @@ class UserProfileServiceTest {
         // Given
         Long userId = 1L;
 
-        when(userProfileRepository.findById(userId))
-                .thenReturn(Optional.empty());
+        when(goalScheduleService.setCustom(eq(userId), any(UpdateGoalRequestDto.class)))
+                .thenThrow(new NotFoundException(UserErrorCode.USER_PROFILE_NOT_FOUND,
+                        "Profile not found"));
 
         // When
         NotFoundException exception = assertThrows(NotFoundException.class,

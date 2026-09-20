@@ -1,8 +1,13 @@
 package com.olehprukhnytskyi.macrotrackeruserservice.service;
 
+import com.olehprukhnytskyi.exception.NotFoundException;
+import com.olehprukhnytskyi.exception.error.UserErrorCode;
+import com.olehprukhnytskyi.macrotrackeruserservice.dto.EffectiveGoalResponseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.EntitlementResponseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.GoalResponseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.GoalScheduleDto;
+import com.olehprukhnytskyi.macrotrackeruserservice.dto.GoalSource;
+import com.olehprukhnytskyi.macrotrackeruserservice.dto.UpdateGoalRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.model.GoalHistory;
 import com.olehprukhnytskyi.macrotrackeruserservice.model.GoalSchedule;
 import com.olehprukhnytskyi.macrotrackeruserservice.model.UserProfile;
@@ -30,12 +35,28 @@ public class GoalScheduleService {
 
     @Transactional(readOnly = true)
     public GoalResponseDto resolve(Long userId, LocalDate date) {
+        return resolveEffective(userId, date).getGoal();
+    }
+
+    @Transactional(readOnly = true)
+    public EffectiveGoalResponseDto resolveEffective(Long userId, LocalDate date) {
         UserProfile profile = requireProfile(userId);
-        return scheduleRepository.resolve(userId, date.getDayOfWeek(), date)
-                .map(schedule -> toGoal(schedule, profile))
-                .orElseGet(() -> historyRepository.resolve(userId, date)
-                        .map(history -> toGoal(history, profile))
-                        .orElseGet(() -> toGoal(profile)));
+        GoalResponseDto recommended = toGoal(profile);
+        Optional<GoalHistory> custom = historyRepository.resolve(userId, date);
+        GoalResponseDto baseGoal = custom.map(history -> toGoal(history, profile))
+                .orElse(recommended);
+        GoalSource baseSource = custom.isPresent()
+                ? GoalSource.CUSTOM : GoalSource.RECOMMENDED;
+        Optional<GoalSchedule> schedule = scheduleRepository.resolve(
+                userId, date.getDayOfWeek(), date);
+        return EffectiveGoalResponseDto.builder()
+                .goal(schedule.map(value -> toGoal(value, profile)).orElse(baseGoal))
+                .source(schedule.isPresent() ? GoalSource.SCHEDULE : baseSource)
+                .baseGoal(baseGoal)
+                .baseSource(baseSource)
+                .recommendedGoal(recommended)
+                .scheduleDay(schedule.map(GoalSchedule::getDayOfWeek).orElse(null))
+                .build();
     }
 
     @Transactional(readOnly = true)
@@ -90,28 +111,25 @@ public class GoalScheduleService {
     }
 
     @Transactional
-    public void snapshotDefaultBeforeChange(Long userId) {
+    public GoalResponseDto setCustom(Long userId, UpdateGoalRequestDto request) {
         LocalDate today = LocalDate.now();
-        GoalHistory current = historyRepository
-                .findFirstByUserIdAndEffectiveToIsNullOrderByEffectiveFromDesc(userId)
-                .orElseGet(() -> {
-                    UserProfile profile = requireProfile(userId);
-                    return GoalHistory.builder().userId(userId)
-                            .calories(profile.getCalories()).protein(profile.getProtein())
-                            .fat(profile.getFat()).carbohydrates(profile.getCarbohydrates())
-                            .effectiveFrom(LocalDate.of(1970, 1, 1)).build();
-                });
-        current.setEffectiveTo(today.minusDays(1));
-        historyRepository.save(current);
+        UserProfile profile = requireProfile(userId);
+        Optional<GoalHistory> current = historyRepository
+                .findFirstByUserIdAndEffectiveToIsNullOrderByEffectiveFromDesc(userId);
+        GoalHistory baseline = current.orElseGet(() -> fromProfile(profile));
+        GoalHistory next = customGoal(userId, today, request, baseline);
+        validateMacros(next.getCalories(), next.getProtein(), next.getFat(),
+                next.getCarbohydrates());
+        current.ifPresent(value -> closeOrRemove(value, today));
+        return toGoal(historyRepository.save(next), profile);
     }
 
     @Transactional
-    public void snapshotDefaultAfterChange(Long userId) {
-        UserProfile profile = requireProfile(userId);
-        historyRepository.save(GoalHistory.builder().userId(userId)
-                .calories(profile.getCalories()).protein(profile.getProtein())
-                .fat(profile.getFat()).carbohydrates(profile.getCarbohydrates())
-                .effectiveFrom(LocalDate.now()).build());
+    public GoalResponseDto useRecommended(Long userId) {
+        LocalDate today = LocalDate.now();
+        historyRepository.findFirstByUserIdAndEffectiveToIsNullOrderByEffectiveFromDesc(userId)
+                .ifPresent(value -> closeOrRemove(value, today));
+        return toGoal(requireProfile(userId));
     }
 
     public void validateMacros(int calories, int protein, int fat, int carbohydrates) {
@@ -133,8 +151,40 @@ public class GoalScheduleService {
 
     private UserProfile requireProfile(Long userId) {
         return profileRepository.findById(userId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                .orElseThrow(() -> new NotFoundException(UserErrorCode.USER_PROFILE_NOT_FOUND,
                         "Profile not found"));
+    }
+
+    private void closeOrRemove(GoalHistory current, LocalDate today) {
+        if (current.getEffectiveFrom().isBefore(today)) {
+            current.setEffectiveTo(today.minusDays(1));
+            historyRepository.save(current);
+        } else {
+            historyRepository.delete(current);
+        }
+    }
+
+    private GoalHistory fromProfile(UserProfile profile) {
+        return GoalHistory.builder()
+                .calories(profile.getCalories()).protein(profile.getProtein())
+                .fat(profile.getFat()).carbohydrates(profile.getCarbohydrates())
+                .build();
+    }
+
+    private GoalHistory customGoal(Long userId, LocalDate date, UpdateGoalRequestDto request,
+                                   GoalHistory baseline) {
+        UpdateGoalRequestDto changes = request == null ? new UpdateGoalRequestDto() : request;
+        return GoalHistory.builder().userId(userId)
+                .calories(orDefault(changes.getCalories(), baseline.getCalories()))
+                .protein(orDefault(changes.getProtein(), baseline.getProtein()))
+                .fat(orDefault(changes.getFat(), baseline.getFat()))
+                .carbohydrates(orDefault(changes.getCarbohydrates(),
+                        baseline.getCarbohydrates()))
+                .effectiveFrom(date).build();
+    }
+
+    private int orDefault(Integer value, Integer fallback) {
+        return value == null ? fallback : value;
     }
 
     private GoalResponseDto toGoal(GoalSchedule source, UserProfile profile) {
