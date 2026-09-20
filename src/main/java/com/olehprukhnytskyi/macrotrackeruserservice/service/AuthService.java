@@ -94,6 +94,7 @@ public class AuthService {
                         "An account with this email already exists");
             }
             userRepository.delete(user);
+            userRepository.flush();
         }
         User newUser = userMapper.toUser(dto);
         newUser.setPassword(passwordEncoder.encode(dto.getPassword()));
