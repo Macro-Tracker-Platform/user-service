@@ -157,10 +157,6 @@ class UserProfileControllerTest extends AbstractRedisTest {
                 .waterGoalMl(2800)
                 .waterGoalMode(WaterGoalMode.AUTO)
                 .build();
-        EffectiveGoalResponseDto expectedResponse = EffectiveGoalResponseDto.builder()
-                .goal(goalResponseDto).source(GoalSource.RECOMMENDED)
-                .baseGoal(goalResponseDto).baseSource(GoalSource.RECOMMENDED)
-                .recommendedGoal(goalResponseDto).build();
 
         // When
         MvcResult mvcResult = mockMvc.perform(
@@ -171,7 +167,7 @@ class UserProfileControllerTest extends AbstractRedisTest {
                 .andReturn();
 
         // Then
-        String expected = objectMapper.writeValueAsString(expectedResponse);
+        String expected = objectMapper.writeValueAsString(goalResponseDto);
         assertEquals(expected, mvcResult.getResponse().getContentAsString());
     }
 
@@ -187,7 +183,7 @@ class UserProfileControllerTest extends AbstractRedisTest {
                 .calories(2300).protein(150).fat(60).carbohydrates(290)
                 .effectiveFrom(today.minusDays(2)).build());
 
-        MvcResult mvcResult = mockMvc.perform(get("/api/profile/goal")
+        MvcResult mvcResult = mockMvc.perform(get("/api/profile/goal/effective")
                         .header(CustomHeaders.X_USER_ID, 1)
                         .queryParam("date", today.toString()))
                 .andExpect(status().isOk()).andReturn();
@@ -201,6 +197,14 @@ class UserProfileControllerTest extends AbstractRedisTest {
         assertThat(response.getBaseGoal().getCalories()).isEqualTo(5000);
         assertThat(response.getRecommendedGoal().getCalories()).isEqualTo(3000);
         assertThat(response.getScheduleDay()).isEqualTo(today.getDayOfWeek());
+
+        MvcResult legacyResult = mockMvc.perform(get("/api/profile/goal")
+                        .header(CustomHeaders.X_USER_ID, 1)
+                        .queryParam("date", today.toString()))
+                .andExpect(status().isOk()).andReturn();
+        GoalResponseDto legacyResponse = objectMapper.readValue(
+                legacyResult.getResponse().getContentAsString(), GoalResponseDto.class);
+        assertThat(legacyResponse.getCalories()).isEqualTo(2300);
     }
 
     @Test
@@ -379,7 +383,7 @@ class UserProfileControllerTest extends AbstractRedisTest {
                         .header(CustomHeaders.X_USER_ID, userId))
                 .andExpect(status().isOk());
         assertThat(goalHistoryRepository.resolve(userId, today)).isEmpty();
-        MvcResult recommendedResult = mockMvc.perform(get("/api/profile/goal")
+        MvcResult recommendedResult = mockMvc.perform(get("/api/profile/goal/effective")
                         .header(CustomHeaders.X_USER_ID, userId)
                         .queryParam("date", today.toString()))
                 .andExpect(status().isOk()).andReturn();

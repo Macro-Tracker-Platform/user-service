@@ -64,14 +64,22 @@ public class UserProfileController {
             description = "Retrieve user nutrition and water goals"
     )
     @GetMapping("/goal")
-    public ResponseEntity<EffectiveGoalResponseDto> getUserGoal(
+    public ResponseEntity<GoalResponseDto> getUserGoal(
             @RequestHeader(CustomHeaders.X_USER_ID) Long userId,
             @RequestParam(required = false) LocalDate date) {
         log.info("Fetching user goals for userId={}", userId);
-        EffectiveGoalResponseDto goal = goalScheduleService.resolveEffective(
+        GoalResponseDto goal = goalScheduleService.resolve(
                 userId, date == null ? LocalDate.now() : date);
         log.info("Fetched user goals for userId={}", userId);
         return ResponseEntity.ok(goal);
+    }
+
+    @GetMapping("/goal/effective")
+    public ResponseEntity<EffectiveGoalResponseDto> getEffectiveUserGoal(
+            @RequestHeader(CustomHeaders.X_USER_ID) Long userId,
+            @RequestParam(required = false) LocalDate date) {
+        return ResponseEntity.ok(goalScheduleService.resolveEffective(
+                userId, date == null ? LocalDate.now() : date));
     }
 
     @Operation(
