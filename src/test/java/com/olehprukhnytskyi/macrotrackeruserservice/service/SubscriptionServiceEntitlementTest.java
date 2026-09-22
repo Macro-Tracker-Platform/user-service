@@ -56,6 +56,8 @@ class SubscriptionServiceEntitlementTest {
     private StringRedisTemplate redisTemplate;
     @Mock
     private ValueOperations<String, String> valueOperations;
+    @Mock
+    private AiCreditService aiCreditService;
 
     private SubscriptionService subscriptionService;
 
@@ -66,6 +68,9 @@ class SubscriptionServiceEntitlementTest {
         lenient().when(userRepository.findById(USER_ID)).thenReturn(Optional.empty());
         lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         lenient().when(valueOperations.get(anyString())).thenReturn(null);
+        lenient().when(aiCreditService.snapshot(USER_ID))
+                .thenReturn(new AiCreditService.Snapshot(
+                        3, 3, Instant.now().plusSeconds(3600)));
         GooglePlayProperties googlePlayProperties = new GooglePlayProperties();
         googlePlayProperties.getProductIds().add("macro_tracker_pro");
         subscriptionService = new SubscriptionService(
@@ -80,6 +85,7 @@ class SubscriptionServiceEntitlementTest {
                 trialEligibilityService,
                 googlePlayProperties,
                 redisTemplate,
+                aiCreditService,
                 new ObjectMapper());
     }
 
@@ -91,7 +97,8 @@ class SubscriptionServiceEntitlementTest {
         assertThat(entitlement.isLegacyAccess()).isFalse();
         assertThat(entitlement.getFeatures().getNutritionLabelScans().getLimit())
                 .isEqualTo(3);
-        assertThat(entitlement.getFeatures().isAdvancedInsights()).isFalse();
+        assertThat(entitlement.getFeatures().isAdvancedInsights()).isTrue();
+        assertThat(entitlement.getFeatures().isAdaptiveCalories()).isTrue();
     }
 
     @Test
@@ -131,7 +138,8 @@ class SubscriptionServiceEntitlementTest {
         EntitlementResponseDto entitlement = subscriptionService.getEntitlement(USER_ID);
 
         assertThat(entitlement.getPlan()).isEqualTo("FREE");
-        assertThat(entitlement.getFeatures().isAdvancedInsights()).isFalse();
+        assertThat(entitlement.getFeatures().isAdvancedInsights()).isTrue();
+        assertThat(entitlement.getFeatures().isAdaptiveCalories()).isTrue();
     }
 
     @Test

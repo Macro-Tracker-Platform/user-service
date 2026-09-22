@@ -17,7 +17,6 @@ import com.olehprukhnytskyi.macrotrackeruserservice.util.SubscriptionStatus;
 import com.olehprukhnytskyi.util.UserRole;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
-import java.time.YearMonth;
 import java.time.ZonedDateTime;
 import java.util.Base64;
 import java.util.Comparator;
@@ -33,11 +32,9 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 @RequiredArgsConstructor
 public class SubscriptionService {
-    private static final int FREE_SUCCESSFUL_SCAN_MONTHLY_LIMIT = 3;
     private static final int PRO_SUCCESSFUL_SCAN_DAILY_LIMIT = 30;
     private static final String PROVIDER = "GOOGLE_PLAY";
     private static final String LIFETIME_PLAN = "PRO";
-    private static final String SUCCESS_MONTHLY_QUOTA_PREFIX = "nutrition-scan:success:monthly:";
     private static final String SUCCESS_DAILY_QUOTA_PREFIX = "nutrition-scan:success:daily:";
 
     private final SubscriptionRepository subscriptionRepository;
@@ -51,6 +48,7 @@ public class SubscriptionService {
     private final TrialEligibilityService trialEligibilityService;
     private final GooglePlayProperties properties;
     private final StringRedisTemplate redisTemplate;
+    private final AiCreditService aiCreditService;
     private final ObjectMapper objectMapper;
 
     @Transactional
@@ -125,9 +123,7 @@ public class SubscriptionService {
         SubscriptionStatus status = subscription == null
                 ? SubscriptionStatus.FREE : effectiveStatus(subscription);
         boolean pro = grantsPro(status);
-        ZonedDateTime now = ZonedDateTime.now(properties.getQuotaZone());
-        ScanQuotaWindow scanQuotaWindow = scanQuotaWindow(userId, pro, now);
-        int used = parseUsage(redisTemplate.opsForValue().get(scanQuotaWindow.key()));
+        ScanAllowance scanAllowance = scanAllowance(userId, pro);
         return EntitlementResponseDto.builder()
                 .plan(pro ? "PRO" : "FREE")
                 .state(status)
@@ -135,14 +131,14 @@ public class SubscriptionService {
                 .legacyAccess(false)
                 .features(EntitlementResponseDto.Features.builder()
                         .nutritionLabelScans(EntitlementResponseDto.ScanAllowance.builder()
-                                .limit(scanQuotaWindow.limit())
-                                .remaining(Math.max(0, scanQuotaWindow.limit() - used))
-                                .resetAt(scanQuotaWindow.resetAt())
+                                .limit(scanAllowance.limit())
+                                .remaining(scanAllowance.remaining())
+                                .resetAt(scanAllowance.resetAt())
                                 .build())
-                        .advancedInsights(pro)
+                        .advancedInsights(true)
                         .futurePlanning(pro)
                         .weekdayGoals(pro)
-                        .adaptiveCalories(pro)
+                        .adaptiveCalories(true)
                         .build())
                 .build();
     }
@@ -175,9 +171,7 @@ public class SubscriptionService {
     }
 
     private EntitlementResponseDto buildLifetimeProEntitlement(Long userId) {
-        ZonedDateTime now = ZonedDateTime.now(properties.getQuotaZone());
-        ScanQuotaWindow scanQuotaWindow = scanQuotaWindow(userId, true, now);
-        int used = parseUsage(redisTemplate.opsForValue().get(scanQuotaWindow.key()));
+        ScanAllowance scanAllowance = scanAllowance(userId, true);
         return EntitlementResponseDto.builder()
                 .plan(LIFETIME_PLAN)
                 .state(SubscriptionStatus.PRO_ACTIVE)
@@ -185,9 +179,9 @@ public class SubscriptionService {
                 .legacyAccess(false)
                 .features(EntitlementResponseDto.Features.builder()
                         .nutritionLabelScans(EntitlementResponseDto.ScanAllowance.builder()
-                                .limit(scanQuotaWindow.limit())
-                                .remaining(Math.max(0, scanQuotaWindow.limit() - used))
-                                .resetAt(scanQuotaWindow.resetAt())
+                                .limit(scanAllowance.limit())
+                                .remaining(scanAllowance.remaining())
+                                .resetAt(scanAllowance.resetAt())
                                 .build())
                         .advancedInsights(true)
                         .futurePlanning(true)
@@ -242,28 +236,22 @@ public class SubscriptionService {
         pubSubTokenVerifier.verify(authorization);
     }
 
-    private ScanQuotaWindow scanQuotaWindow(Long userId, boolean premium,
-                                            ZonedDateTime now) {
-        if (premium) {
-            Instant resetAt = now.toLocalDate().plusDays(1)
-                    .atStartOfDay(now.getZone())
-                    .toInstant();
-            return new ScanQuotaWindow(
-                    SUCCESS_DAILY_QUOTA_PREFIX + userId + ":" + now.toLocalDate(),
-                    PRO_SUCCESSFUL_SCAN_DAILY_LIMIT,
-                    resetAt
-            );
+    private ScanAllowance scanAllowance(Long userId, boolean premium) {
+        if (!premium) {
+            AiCreditService.Snapshot snapshot = aiCreditService.snapshot(userId);
+            return new ScanAllowance(
+                    snapshot.limit(), snapshot.remaining(), snapshot.resetAt());
         }
-        YearMonth month = YearMonth.from(now);
-        Instant resetAt = month.plusMonths(1)
-                .atDay(1)
+        ZonedDateTime now = ZonedDateTime.now(properties.getQuotaZone());
+        Instant resetAt = now.toLocalDate().plusDays(1)
                 .atStartOfDay(now.getZone())
                 .toInstant();
-        return new ScanQuotaWindow(
-                SUCCESS_MONTHLY_QUOTA_PREFIX + userId + ":" + month,
-                FREE_SUCCESSFUL_SCAN_MONTHLY_LIMIT,
-                resetAt
-        );
+        String key = SUCCESS_DAILY_QUOTA_PREFIX + userId + ":" + now.toLocalDate();
+        int used = parseUsage(redisTemplate.opsForValue().get(key));
+        return new ScanAllowance(
+                PRO_SUCCESSFUL_SCAN_DAILY_LIMIT,
+                Math.max(0, PRO_SUCCESSFUL_SCAN_DAILY_LIMIT - used),
+                resetAt);
     }
 
     private void refreshByToken(String purchaseToken) {
@@ -330,7 +318,7 @@ public class SubscriptionService {
         return subscription;
     }
 
-    private record ScanQuotaWindow(String key, int limit, Instant resetAt) {
+    private record ScanAllowance(int limit, int remaining, Instant resetAt) {
     }
 
     private int parseUsage(String value) {
