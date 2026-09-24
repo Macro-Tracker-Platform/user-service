@@ -43,6 +43,9 @@ public class PromoCodeService {
         PromoCode promoCode = promoCodeRepository.findByCodeIgnoreCase(normalizedCode)
                 .orElseThrow(this::invalidCode);
         requireAvailable(promoCode, Instant.now());
+        if (!trialEligibilityService.isEligible(userId)) {
+            throw invalidCode();
+        }
         PromoCodeClaim existingClaim = claimRepository.findById(userId).orElse(null);
         if ((existingClaim != null && existingClaim.getConsumedAt() != null)
                 || subscriptionRepository.existsByUserIdAndPromoCodeIsNotNull(userId)) {
@@ -50,6 +53,7 @@ public class PromoCodeService {
         }
         String monthlyOfferId = discountOnlyOfferId(promoCode.getMonthlyOfferId());
         String yearlyOfferId = discountOnlyOfferId(promoCode.getYearlyOfferId());
+        final String yearlyPromoTrialOfferId = promoTrialOfferId(promoCode, yearlyOfferId);
         String appleYearlyProductId = applePromoProductId(
                 promoCode, userId, revenueCatProperties.getPromoYearlyProductId());
         String appleMonthlyProductId = applePromoProductId(
@@ -76,6 +80,7 @@ public class PromoCodeService {
                 .discountPercent(promoCode.getDiscountPercent())
                 .monthlyOfferId(monthlyOfferId)
                 .yearlyOfferId(yearlyOfferId)
+                .yearlyPromoTrialOfferId(yearlyPromoTrialOfferId)
                 .appleYearlyProductId(appleYearlyProductId)
                 .appleMonthlyProductId(appleMonthlyProductId)
                 .build();
@@ -108,8 +113,14 @@ public class PromoCodeService {
             return;
         }
         String expectedOfferId = offerIdForBasePlan(promoCode, snapshot.basePlanId());
-        if (isBlank(expectedOfferId) || trialEligibilityService.isTrialOffer(expectedOfferId)
-                || !expectedOfferId.equals(snapshot.offerId())) {
+        boolean matchingDiscount = !isBlank(expectedOfferId)
+                && expectedOfferId.equals(snapshot.offerId())
+                && !trialEligibilityService.isTrialOffer(snapshot.offerId());
+        boolean matchingPromoTrial = YEARLY_BASE_PLAN_ID.equalsIgnoreCase(snapshot.basePlanId())
+                && promoCode.getDiscountPercent() != null
+                && promoCode.getDiscountPercent() == 15
+                && trialEligibilityService.isPromoTrialOffer(snapshot.offerId());
+        if (!matchingDiscount && !matchingPromoTrial) {
             return;
         }
         subscription.setPromoCode(promoCode);
@@ -208,7 +219,17 @@ public class PromoCodeService {
     }
 
     private String discountOnlyOfferId(String offerId) {
-        return trialEligibilityService.isTrialOffer(offerId) ? null : offerId;
+        return trialEligibilityService.isPromoTrialOffer(offerId) ? null : offerId;
+    }
+
+    private String promoTrialOfferId(PromoCode promoCode, String yearlyOfferId) {
+        if (isBlank(yearlyOfferId)
+                || promoCode.getDiscountPercent() == null
+                || promoCode.getDiscountPercent() != 15) {
+            return null;
+        }
+        String offerId = trialEligibilityService.promoTrialOfferId();
+        return isBlank(offerId) ? null : offerId;
     }
 
     private NotFoundException invalidCode() {

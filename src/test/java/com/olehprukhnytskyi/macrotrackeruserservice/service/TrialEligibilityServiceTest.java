@@ -9,7 +9,9 @@ import static org.mockito.Mockito.when;
 import com.olehprukhnytskyi.macrotrackeruserservice.model.Subscription;
 import com.olehprukhnytskyi.macrotrackeruserservice.model.SubscriptionTrialRedemption;
 import com.olehprukhnytskyi.macrotrackeruserservice.properties.GooglePlayProperties;
+import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.SubscriptionRepository;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.SubscriptionTrialRedemptionRepository;
+import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.UserEntitlementRepository;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -26,6 +28,10 @@ class TrialEligibilityServiceTest {
 
     @Mock
     private SubscriptionTrialRedemptionRepository redemptionRepository;
+    @Mock
+    private SubscriptionRepository subscriptionRepository;
+    @Mock
+    private UserEntitlementRepository entitlementRepository;
 
     private TrialEligibilityService service;
 
@@ -33,7 +39,8 @@ class TrialEligibilityServiceTest {
     void setUp() {
         GooglePlayProperties properties = new GooglePlayProperties();
         properties.getTrialOfferIds().add(TRIAL_OFFER_ID);
-        service = new TrialEligibilityService(redemptionRepository, properties);
+        service = new TrialEligibilityService(
+                redemptionRepository, subscriptionRepository, entitlementRepository, properties);
     }
 
     @Test
@@ -70,5 +77,17 @@ class TrialEligibilityServiceTest {
         verify(redemptionRepository, never()).findById(USER_ID);
         verify(redemptionRepository, never()).save(
                 org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void accountWithPreviousSubscriptionIsNotEligible() {
+        when(subscriptionRepository.existsByUserId(USER_ID)).thenReturn(true);
+
+        assertThat(service.isEligible(USER_ID)).isFalse();
+    }
+
+    @Test
+    void untouchedAccountIsEligible() {
+        assertThat(service.isEligible(USER_ID)).isTrue();
     }
 }

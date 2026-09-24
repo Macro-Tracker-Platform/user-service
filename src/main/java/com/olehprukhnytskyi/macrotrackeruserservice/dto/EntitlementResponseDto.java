@@ -16,6 +16,7 @@ public class EntitlementResponseDto {
     private SubscriptionStatus state;
     private Instant validUntil;
     private boolean legacyAccess;
+    private boolean trialEligible;
     private Features features;
 
     @Data

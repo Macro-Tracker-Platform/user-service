@@ -2,6 +2,7 @@ package com.olehprukhnytskyi.macrotrackeruserservice.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -55,6 +56,9 @@ class PromoCodeServiceTest {
         promoCodeService = new PromoCodeService(
                 promoCodeRepository, claimRepository, subscriptionRepository,
                 trialEligibilityService, entitlementRepository, revenueCatProperties);
+        lenient().when(trialEligibilityService.isEligible(USER_ID)).thenReturn(true);
+        lenient().when(trialEligibilityService.promoTrialOfferId())
+                .thenReturn("promo-10-new-year");
         promoCode = PromoCode.builder()
                 .id(5L)
                 .code("FRIEND20")
@@ -84,6 +88,20 @@ class PromoCodeServiceTest {
     }
 
     @Test
+    void fifteenPercentPromoReturnsDiscountAndTrialCombinationOffers() {
+        promoCode.setDiscountPercent(15);
+        PromoCodeRequestDto request = new PromoCodeRequestDto();
+        request.setCode("FRIEND20");
+        when(promoCodeRepository.findByCodeIgnoreCase("FRIEND20"))
+                .thenReturn(Optional.of(promoCode));
+
+        PromoCodeResponseDto response = promoCodeService.validateAndClaim(USER_ID, request);
+
+        assertThat(response.getYearlyOfferId()).isEqualTo("partner-20-yearly");
+        assertThat(response.getYearlyPromoTrialOfferId()).isEqualTo("promo-10-new-year");
+    }
+
+    @Test
     void returnsApplePromoProductForNewFifteenPercentCustomer() {
         promoCode.setDiscountPercent(15);
         PromoCodeRequestDto request = new PromoCodeRequestDto();
@@ -98,18 +116,16 @@ class PromoCodeServiceTest {
     }
 
     @Test
-    void previousSubscriptionHidesApplePromoProduct() {
+    void previousSubscriptionRejectsPromoForAllStores() {
         promoCode.setDiscountPercent(15);
         PromoCodeRequestDto request = new PromoCodeRequestDto();
         request.setCode("FRIEND20");
         when(promoCodeRepository.findByCodeIgnoreCase("FRIEND20"))
                 .thenReturn(Optional.of(promoCode));
-        when(subscriptionRepository.existsByUserId(USER_ID)).thenReturn(true);
+        when(trialEligibilityService.isEligible(USER_ID)).thenReturn(false);
 
-        PromoCodeResponseDto response = promoCodeService.validateAndClaim(USER_ID, request);
-
-        assertThat(response.getAppleYearlyProductId()).isNull();
-        assertThat(response.getAppleMonthlyProductId()).isNull();
+        assertThatThrownBy(() -> promoCodeService.validateAndClaim(USER_ID, request))
+                .isInstanceOf(NotFoundException.class);
     }
 
     @Test
@@ -157,14 +173,15 @@ class PromoCodeServiceTest {
     }
 
     @Test
-    void promoCodeExcludesTrialOfferEvenForNewUser() {
+    void promoCodeExcludesConfiguredPromoTrialFromDiscountSlot() {
+        promoCode.setYearlyOfferId("promo-10-new-year");
         PromoCodeRequestDto request = new PromoCodeRequestDto();
         request.setCode("FRIEND20");
         when(promoCodeRepository.findByCodeIgnoreCase("FRIEND20"))
                 .thenReturn(Optional.of(promoCode));
-        when(trialEligibilityService.isTrialOffer("partner-20-monthly"))
+        when(trialEligibilityService.isPromoTrialOffer("partner-20-monthly"))
                 .thenReturn(false);
-        when(trialEligibilityService.isTrialOffer("partner-20-yearly"))
+        when(trialEligibilityService.isPromoTrialOffer("promo-10-new-year"))
                 .thenReturn(true);
 
         PromoCodeResponseDto response = promoCodeService.validateAndClaim(USER_ID, request);
@@ -193,6 +210,31 @@ class PromoCodeServiceTest {
         assertThat(claim.getConsumedAt()).isNotNull();
         assertThat(claim.getSubscription()).isEqualTo(subscription);
         verify(claimRepository).save(claim);
+    }
+
+    @Test
+    void matchingYearlyPromoTrialIsAttributedToPromoCode() {
+        promoCode.setDiscountPercent(15);
+        PromoCodeClaim claim = PromoCodeClaim.builder()
+                .userId(USER_ID)
+                .promoCode(promoCode)
+                .claimedAt(Instant.now())
+                .expiresAt(Instant.now().plusSeconds(3600))
+                .build();
+        final Subscription subscription = new Subscription();
+        when(claimRepository.findById(USER_ID)).thenReturn(Optional.of(claim));
+        when(promoCodeRepository.findByIdForUpdate(5L)).thenReturn(Optional.of(promoCode));
+        when(trialEligibilityService.isPromoTrialOffer("promo-10-new-year"))
+                .thenReturn(true);
+        GooglePlaySubscriptionSnapshot snapshot = new GooglePlaySubscriptionSnapshot(
+                "macro_tracker_pro", "yearly", "promo-10-new-year",
+                "SUBSCRIPTION_STATE_ACTIVE", Instant.now(),
+                Instant.now().plusSeconds(3600), true, true);
+
+        promoCodeService.attributePurchase(subscription, USER_ID, snapshot, true);
+
+        assertThat(subscription.getPromoCode()).isEqualTo(promoCode);
+        assertThat(claim.getConsumedAt()).isNotNull();
     }
 
     @Test

@@ -16,4 +16,5 @@ public class GooglePlayProperties {
     private String rtdnServiceAccountEmail;
     private ZoneId quotaZone = ZoneId.of("UTC");
     private Set<String> trialOfferIds = new HashSet<>();
+    private String promoTrialOfferId;
 }

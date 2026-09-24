@@ -10,6 +10,7 @@ public class PromoCodeResponseDto {
     private Integer discountPercent;
     private String monthlyOfferId;
     private String yearlyOfferId;
+    private String yearlyPromoTrialOfferId;
     private String appleYearlyProductId;
     private String appleMonthlyProductId;
 }

@@ -1,0 +1,24 @@
+databaseChangeLog:
+  - changeSet:
+      id: 24-backfill-promo-trial-redemptions
+      author: codex
+      dbms: postgresql
+      changes:
+        - sql:
+            sql: >-
+              INSERT INTO subscription_trial_redemptions
+                (user_id, subscription_id, offer_id, redeemed_at)
+              SELECT DISTINCT ON (s.user_id)
+                     s.user_id,
+                     s.id,
+                     s.offer_id,
+                     COALESCE(s.started_at, s.created_at)
+              FROM subscriptions s
+              WHERE s.offer_id = 'promo-10-new-year'
+                AND NOT EXISTS (
+                  SELECT 1
+                  FROM subscription_trial_redemptions r
+                  WHERE r.user_id = s.user_id
+                     OR r.subscription_id = s.id
+                )
+              ORDER BY s.user_id, COALESCE(s.started_at, s.created_at), s.id

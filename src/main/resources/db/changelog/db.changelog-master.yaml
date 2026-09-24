@@ -45,3 +45,5 @@ databaseChangeLog:
       file: db/changelog/changes/22-create-food-photo-scan-consumptions.yaml
   - include:
       file: db/changelog/changes/23-add-voice-food-scan-credits.yaml
+  - include:
+      file: db/changelog/changes/24-backfill-promo-trial-redemptions.yaml
