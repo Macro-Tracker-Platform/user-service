@@ -99,6 +99,7 @@ class SubscriptionServiceEntitlementTest {
                 .isEqualTo(3);
         assertThat(entitlement.getFeatures().isAdvancedInsights()).isTrue();
         assertThat(entitlement.getFeatures().isAdaptiveCalories()).isTrue();
+        assertThat(entitlement.getFeatures().isTrainerExport()).isFalse();
     }
 
     @Test
@@ -116,6 +117,7 @@ class SubscriptionServiceEntitlementTest {
         assertThat(entitlement.getPlan()).isEqualTo("PRO");
         assertThat(entitlement.getState()).isEqualTo(SubscriptionStatus.PRO_ACTIVE);
         assertThat(entitlement.getFeatures().isAdvancedInsights()).isTrue();
+        assertThat(entitlement.getFeatures().isTrainerExport()).isTrue();
     }
 
     @Test
@@ -169,6 +171,7 @@ class SubscriptionServiceEntitlementTest {
         assertThat(entitlement.getFeatures().isFuturePlanning()).isTrue();
         assertThat(entitlement.getFeatures().isWeekdayGoals()).isTrue();
         assertThat(entitlement.getFeatures().isAdaptiveCalories()).isTrue();
+        assertThat(entitlement.getFeatures().isTrainerExport()).isTrue();
     }
 
     @Test

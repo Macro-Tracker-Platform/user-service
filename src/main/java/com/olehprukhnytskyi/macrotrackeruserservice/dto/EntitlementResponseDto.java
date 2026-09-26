@@ -29,6 +29,7 @@ public class EntitlementResponseDto {
         private boolean futurePlanning;
         private boolean weekdayGoals;
         private boolean adaptiveCalories;
+        private boolean trainerExport;
     }
 
     @Data
