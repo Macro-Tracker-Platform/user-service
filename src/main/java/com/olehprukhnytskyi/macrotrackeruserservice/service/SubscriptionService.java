@@ -141,6 +141,7 @@ public class SubscriptionService {
                         .weekdayGoals(pro)
                         .adaptiveCalories(true)
                         .trainerExport(pro)
+                        .extendedInsightsPeriods(pro)
                         .build())
                 .build();
     }
@@ -191,6 +192,7 @@ public class SubscriptionService {
                         .weekdayGoals(true)
                         .adaptiveCalories(true)
                         .trainerExport(true)
+                        .extendedInsightsPeriods(true)
                         .build())
                 .build();
     }

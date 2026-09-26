@@ -30,6 +30,7 @@ public class EntitlementResponseDto {
         private boolean weekdayGoals;
         private boolean adaptiveCalories;
         private boolean trainerExport;
+        private boolean extendedInsightsPeriods;
     }
 
     @Data
