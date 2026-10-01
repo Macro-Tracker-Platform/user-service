@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 public class AiCreditService {
     static final String DAILY_PREFIX = "ai-credits:free:daily:";
     static final String COMPLETED_PREFIX = "ai-credits:free:completed:";
+    static final String EXHAUSTED_PREFIX = "ai-credits:free:exhausted:";
     private static final DefaultRedisScript<Long> CONSUME_SCRIPT =
             new DefaultRedisScript<>("""
                     local used = tonumber(redis.call('GET', KEYS[1]) or '0')
@@ -54,7 +55,30 @@ public class AiCreditService {
         if (used < 0) {
             return response(window, 0, false);
         }
+        if (used >= window.limit()) {
+            markExhausted(userId, window.date());
+        }
         return response(window, Math.max(0, window.limit() - used.intValue()), true);
+    }
+
+    public boolean wasExhausted(Long userId, java.time.LocalDate date,
+                                java.time.ZoneId userZone) {
+        java.time.LocalDate firstQuotaDay = date.atStartOfDay(userZone)
+                .withZoneSameInstant(properties.getQuotaZone()).toLocalDate();
+        java.time.LocalDate lastQuotaDay = date.plusDays(1).atStartOfDay(userZone)
+                .minusNanos(1).withZoneSameInstant(properties.getQuotaZone()).toLocalDate();
+        for (java.time.LocalDate day = firstQuotaDay; !day.isAfter(lastQuotaDay);
+                day = day.plusDays(1)) {
+            String timestamp = redisTemplate.opsForValue().get(
+                    EXHAUSTED_PREFIX + userId + ":" + day);
+            if (timestamp != null && Instant.parse(timestamp).atZone(userZone)
+                    .toLocalDate().equals(date)
+                    && !Instant.now().isBefore(day.plusDays(1)
+                    .atStartOfDay(properties.getQuotaZone()).toInstant())) {
+                return getRemaining(userId).getRemainingScans() > 0;
+            }
+        }
+        return false;
     }
 
     public Snapshot snapshot(Long userId) {
@@ -86,7 +110,18 @@ public class AiCreditService {
                 COMPLETED_PREFIX + suffix,
                 properties.getFreeDailyLimit(),
                 resetAt,
-                ttlSeconds);
+                ttlSeconds,
+                now.toLocalDate());
+    }
+
+    private void markExhausted(Long userId, java.time.LocalDate date) {
+        ZonedDateTime expiresAt = date.plusDays(3)
+                .atStartOfDay(properties.getQuotaZone());
+        Duration ttl = Duration.between(Instant.now(), expiresAt.toInstant());
+        redisTemplate.opsForValue().setIfAbsent(
+                EXHAUSTED_PREFIX + userId + ":" + date,
+                Instant.now().toString(),
+                ttl.isNegative() || ttl.isZero() ? Duration.ofDays(1) : ttl);
     }
 
     private int parseUsage(String rawUsed) {
@@ -110,6 +145,7 @@ public class AiCreditService {
     }
 
     private record Window(String usageKey, String completedKey, int limit,
-                          Instant resetAt, long ttlSeconds) {
+                          Instant resetAt, long ttlSeconds,
+                          java.time.LocalDate date) {
     }
 }
