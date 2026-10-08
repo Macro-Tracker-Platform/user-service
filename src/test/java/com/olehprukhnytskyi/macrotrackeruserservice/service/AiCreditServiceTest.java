@@ -4,15 +4,19 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.FoodPhotoScanCreditDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.properties.AiCreditProperties;
 import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
@@ -32,6 +36,31 @@ class AiCreditServiceTest {
         properties.setFreeDailyLimit(3);
         properties.setQuotaZone(ZoneId.of("UTC"));
         service = new AiCreditService(redisTemplate, properties);
+    }
+
+    @Test
+    void exhaustedCreditsAreRestoredAtUtcMidnight() {
+        ZoneId zone = ZoneId.of("UTC");
+        ZonedDateTime beforeReset = ZonedDateTime.parse("2026-10-08T23:59:59Z");
+        ZonedDateTime afterReset = ZonedDateTime.parse("2026-10-09T00:00:00Z");
+        when(values.get(AiCreditService.DAILY_PREFIX + "9:2026-10-08"))
+                .thenReturn("3");
+
+        try (MockedStatic<ZonedDateTime> time =
+                     mockStatic(ZonedDateTime.class, CALLS_REAL_METHODS)) {
+            time.when(() -> ZonedDateTime.now(zone)).thenReturn(beforeReset);
+            FoodPhotoScanCreditDto exhausted = service.getRemaining(9L);
+            assertThat(exhausted.getRemainingScans()).isZero();
+            assertThat(exhausted.getResetAt()).isEqualTo(afterReset.toInstant());
+
+            time.when(() -> ZonedDateTime.now(zone)).thenReturn(afterReset);
+            FoodPhotoScanCreditDto restored = service.getRemaining(9L);
+            assertThat(restored.getRemainingScans()).isEqualTo(3);
+            assertThat(restored.isAllowed()).isTrue();
+            assertThat(restored.getResetAt())
+                    .isEqualTo(afterReset.plusDays(1).toInstant());
+        }
+        verify(values).get(AiCreditService.DAILY_PREFIX + "9:2026-10-09");
     }
 
     @Test
