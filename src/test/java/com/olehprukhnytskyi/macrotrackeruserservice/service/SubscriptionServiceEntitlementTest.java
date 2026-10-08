@@ -193,6 +193,51 @@ class SubscriptionServiceEntitlementTest {
     }
 
     @Test
+    void inactivePurchaseWithLaterExpiryDoesNotHideActivePremium() {
+        Subscription active = Subscription.builder()
+                .userId(USER_ID)
+                .status(SubscriptionStatus.PRO_ACTIVE)
+                .expiresAt(Instant.now().plusSeconds(3600))
+                .build();
+        Subscription revoked = Subscription.builder()
+                .userId(USER_ID)
+                .status(SubscriptionStatus.PRO_EXPIRED)
+                .expiresAt(Instant.now().plusSeconds(7200))
+                .build();
+        when(subscriptionRepository.findByUserIdOrderByExpiresAtDesc(USER_ID))
+                .thenReturn(List.of(revoked, active));
+
+        EntitlementResponseDto entitlement = subscriptionService.getEntitlement(USER_ID);
+
+        assertThat(entitlement.getPlan()).isEqualTo("PRO");
+        assertThat(entitlement.getValidUntil()).isEqualTo(active.getExpiresAt());
+        assertThat(entitlement.getFeatures().isFuturePlanning()).isTrue();
+        assertThat(entitlement.getFeatures().isTrainerExport()).isTrue();
+    }
+
+    @Test
+    void expiredActiveRecordDoesNotHideCurrentCanceledButPaidPremium() {
+        Subscription expired = Subscription.builder()
+                .userId(USER_ID)
+                .status(SubscriptionStatus.PRO_ACTIVE)
+                .expiresAt(Instant.now().minusSeconds(60))
+                .build();
+        Subscription paid = Subscription.builder()
+                .userId(USER_ID)
+                .status(SubscriptionStatus.PRO_CANCELED_BUT_ACTIVE)
+                .expiresAt(Instant.now().plusSeconds(3600))
+                .build();
+        when(subscriptionRepository.findByUserIdOrderByExpiresAtDesc(USER_ID))
+                .thenReturn(List.of(expired, paid));
+
+        EntitlementResponseDto entitlement = subscriptionService.getEntitlement(USER_ID);
+
+        assertThat(entitlement.getPlan()).isEqualTo("PRO");
+        assertThat(entitlement.getState())
+                .isEqualTo(SubscriptionStatus.PRO_CANCELED_BUT_ACTIVE);
+    }
+
+    @Test
     void verifyKeepsExistingGooglePlayPurchaseWithLatestUserByDefault() {
         Long previousUserId = 7L;
         String token = "purchase-token";

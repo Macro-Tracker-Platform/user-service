@@ -117,8 +117,10 @@ public class SubscriptionService {
         Subscription subscription = revenueCatManaged ? null : subscriptionRepository
                     .findByUserIdOrderByExpiresAtDesc(userId)
                     .stream()
-                    .max(Comparator.comparing(item -> item.getExpiresAt() == null
-                            ? Instant.EPOCH : item.getExpiresAt()))
+                    .max(Comparator.comparing((Subscription item) ->
+                            grantsPro(effectiveStatus(item)))
+                            .thenComparing(item -> item.getExpiresAt() == null
+                                    ? Instant.EPOCH : item.getExpiresAt()))
                     .orElse(null);
         SubscriptionStatus status = subscription == null
                 ? SubscriptionStatus.FREE : effectiveStatus(subscription);
