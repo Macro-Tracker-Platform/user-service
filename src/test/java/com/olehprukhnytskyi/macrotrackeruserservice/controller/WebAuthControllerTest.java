@@ -5,11 +5,17 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.olehprukhnytskyi.exception.GlobalExceptionHandler;
+import com.olehprukhnytskyi.exception.error.AuthErrorCode;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.AuthResponseDto;
+import com.olehprukhnytskyi.macrotrackeruserservice.exception.AuthenticationException;
+import com.olehprukhnytskyi.macrotrackeruserservice.exception.HttpStatusExceptionHandler;
 import com.olehprukhnytskyi.macrotrackeruserservice.properties.JwtProperties;
 import com.olehprukhnytskyi.macrotrackeruserservice.properties.WebAuthProperties;
 import com.olehprukhnytskyi.macrotrackeruserservice.service.AuthService;
@@ -27,6 +33,7 @@ class WebAuthControllerTest {
     private MockMvc mvc() {
         jwt.setRefreshTokenTtlDays(30L);
         return MockMvcBuilders.standaloneSetup(new WebAuthController(auth, properties, jwt))
+                .setControllerAdvice(new GlobalExceptionHandler(), new HttpStatusExceptionHandler())
                 .build();
     }
 
@@ -64,7 +71,10 @@ class WebAuthControllerTest {
     void refreshRequiresCookieAndRotatesIt() throws Exception {
         var mvc = mvc();
         mvc.perform(post("/api/auth/web/refresh").header("Origin", "https://macrotracker.uk"))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.code").value("SIGN_IN_REQUIRED"))
+                .andExpect(header().string("Cache-Control", "no-store"));
         when(auth.refreshToken("old")).thenReturn(new AuthResponseDto("new-access", "new-refresh"));
         var result = mvc.perform(post("/api/auth/web/refresh")
                 .header("Origin", "https://macrotracker.uk")
@@ -92,4 +102,36 @@ class WebAuthControllerTest {
         assertThat(response.getHeaders("Set-Cookie")).hasSize(2)
                 .allSatisfy(cookie -> assertThat(cookie).contains("Max-Age=0", "HttpOnly"));
     }
+
+    @Test
+    void openingPostOnlyRefreshInBrowserReturns405WithAllowHeader() throws Exception {
+        mvc().perform(get("/api/auth/web/refresh"))
+                .andExpect(status().isMethodNotAllowed())
+                .andExpect(header().string("Allow", "POST"))
+                .andExpect(jsonPath("$.status").value(405))
+                .andExpect(jsonPath("$.code").value("HTTP_405"));
+        verifyNoInteractions(auth);
+    }
+
+    @Test
+    void expiredCookieStillUsesTheExistingAuthenticationErrorContract() throws Exception {
+        when(auth.refreshToken("expired")).thenThrow(new AuthenticationException(
+                AuthErrorCode.INVALID_TOKEN, "Invalid refresh token"));
+        mvc().perform(post("/api/auth/web/refresh")
+                .header("Origin", "https://macrotracker.uk")
+                .cookie(new Cookie("__Host-mt_refresh", "expired")))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(AuthErrorCode.INVALID_TOKEN.getCode()));
+    }
+
+    @Test
+    void actualUnexpectedFailureStillReturns500WithoutExposingItsMessage() throws Exception {
+        when(auth.refreshToken("old")).thenThrow(new IllegalStateException("private failure"));
+        mvc().perform(post("/api/auth/web/refresh")
+                .header("Origin", "https://macrotracker.uk")
+                .cookie(new Cookie("__Host-mt_refresh", "old")))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.detail").value("An unexpected error occurred"));
+    }
+
 }
