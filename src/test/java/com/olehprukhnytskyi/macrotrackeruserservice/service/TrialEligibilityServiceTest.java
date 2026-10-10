@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 import com.olehprukhnytskyi.macrotrackeruserservice.model.Subscription;
 import com.olehprukhnytskyi.macrotrackeruserservice.model.SubscriptionTrialRedemption;
 import com.olehprukhnytskyi.macrotrackeruserservice.properties.GooglePlayProperties;
+import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.RevenueCatSubscriptionRepository;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.SubscriptionRepository;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.SubscriptionTrialRedemptionRepository;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.UserEntitlementRepository;
@@ -33,6 +34,9 @@ class TrialEligibilityServiceTest {
     @Mock
     private UserEntitlementRepository entitlementRepository;
 
+    @Mock
+    private RevenueCatSubscriptionRepository revenueCatSubscriptionRepository;
+
     private TrialEligibilityService service;
 
     @BeforeEach
@@ -40,7 +44,8 @@ class TrialEligibilityServiceTest {
         GooglePlayProperties properties = new GooglePlayProperties();
         properties.getTrialOfferIds().add(TRIAL_OFFER_ID);
         service = new TrialEligibilityService(
-                redemptionRepository, subscriptionRepository, entitlementRepository, properties);
+                redemptionRepository, subscriptionRepository, entitlementRepository, properties,
+                revenueCatSubscriptionRepository);
     }
 
     @Test
@@ -82,6 +87,13 @@ class TrialEligibilityServiceTest {
     @Test
     void accountWithPreviousSubscriptionIsNotEligible() {
         when(subscriptionRepository.existsByUserId(USER_ID)).thenReturn(true);
+
+        assertThat(service.isEligible(USER_ID)).isFalse();
+    }
+
+    @Test
+    void previousWebTrialPreventsAnotherTrial() {
+        when(revenueCatSubscriptionRepository.existsByUserId(USER_ID)).thenReturn(true);
 
         assertThat(service.isEligible(USER_ID)).isFalse();
     }

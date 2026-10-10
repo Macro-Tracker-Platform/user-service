@@ -1,0 +1,14 @@
+databaseChangeLog:
+  - changeSet:
+      id: 27-retain-deleted-account-billing
+      author: codex
+      changes:
+        - dropForeignKeyConstraint:
+            baseTableName: web_checkouts
+            constraintName: fk_web_checkouts_user_id
+        - addColumn:
+            tableName: web_checkouts
+            columns:
+              - column:
+                  name: account_deleted_at
+                  type: TIMESTAMP WITH TIME ZONE

@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.EntitlementResponseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.GooglePurchaseDto;
+import com.olehprukhnytskyi.macrotrackeruserservice.model.RevenueCatSubscription;
 import com.olehprukhnytskyi.macrotrackeruserservice.model.Subscription;
 import com.olehprukhnytskyi.macrotrackeruserservice.model.User;
 import com.olehprukhnytskyi.macrotrackeruserservice.model.UserEntitlement;
@@ -59,7 +60,55 @@ class SubscriptionServiceEntitlementTest {
     @Mock
     private AiCreditService aiCreditService;
 
+    @Mock
+    private RevenueCatSubscriptionService revenueCatSubscriptionService;
+
+    @Mock
+    private WebRevenueCatAccessService webRevenueCatAccessService;
+
     private SubscriptionService subscriptionService;
+
+    @Test
+    void expiredLocalWebPeriodIsRefreshedBeforePremiumIsDenied() {
+        Instant expiry = Instant.now().plusSeconds(3600);
+        when(webRevenueCatAccessService.currentAccess(USER_ID)).thenReturn(
+                Subscription.builder().userId(USER_ID).status(SubscriptionStatus.PRO_ACTIVE)
+                        .provider("STRIPE").expiresAt(expiry).build());
+        var result = subscriptionService.getEntitlement(USER_ID, null);
+        assertThat(result.getBillingProviders()).containsExactly("STRIPE");
+        assertThat(result.getPlan()).isEqualTo("PRO");
+        assertThat(result.getValidUntil()).isEqualTo(expiry);
+    }
+
+    @Test
+    void allActiveProvidersAreReturnedWithoutExpiredOrUnknownStores() {
+        when(revenueCatSubscriptionService.subscriptions(USER_ID)).thenReturn(List.of(
+                RevenueCatSubscription.builder().store("APP_STORE").active(true)
+                        .expiresAt(Instant.now().plusSeconds(3600)).build(),
+                RevenueCatSubscription.builder().store("STRIPE").active(true)
+                        .expiresAt(Instant.now().plusSeconds(7200)).build(),
+                RevenueCatSubscription.builder().store("PLAY_STORE").active(false)
+                        .expiresAt(Instant.now().plusSeconds(7200)).build(),
+                RevenueCatSubscription.builder().store("PROMOTIONAL").active(true)
+                        .expiresAt(Instant.now().plusSeconds(7200)).build()));
+        assertThat(subscriptionService.getEntitlement(USER_ID).getBillingProviders())
+                .containsExactly("APP_STORE", "STRIPE");
+    }
+
+    @Test
+    void verifiedGoogleSnapshotRoutesToPlayAndUnknownLegacyDoesNotGuess() {
+        var purchase = Subscription.builder().provider("GOOGLE_PLAY")
+                .status(SubscriptionStatus.PRO_CANCELED_BUT_ACTIVE)
+                .expiresAt(Instant.now().plusSeconds(3600)).build();
+        when(subscriptionRepository.findByUserIdOrderByExpiresAtDesc(USER_ID))
+                .thenReturn(List.of(purchase));
+        assertThat(subscriptionService.getEntitlement(USER_ID).getBillingProviders())
+                .containsExactly("PLAY_STORE");
+        purchase.setProvider(null);
+        assertThat(subscriptionService.getEntitlement(USER_ID).getBillingProviders()).isEmpty();
+        assertThat(subscriptionService.getEntitlement(USER_ID, "VIP").getBillingProviders())
+                .isEmpty();
+    }
 
     @BeforeEach
     void setUp() {
@@ -86,7 +135,7 @@ class SubscriptionServiceEntitlementTest {
                 googlePlayProperties,
                 redisTemplate,
                 aiCreditService,
-                new ObjectMapper());
+                new ObjectMapper(), revenueCatSubscriptionService, webRevenueCatAccessService);
     }
 
     @Test
@@ -144,6 +193,51 @@ class SubscriptionServiceEntitlementTest {
         assertThat(entitlement.getPlan()).isEqualTo("FREE");
         assertThat(entitlement.getFeatures().isAdvancedInsights()).isTrue();
         assertThat(entitlement.getFeatures().isAdaptiveCalories()).isTrue();
+    }
+
+    @Test
+    void expiredAppleDoesNotDisableActiveWebSubscription() {
+        Instant expiry = Instant.now().plusSeconds(3600);
+        when(revenueCatSubscriptionService.subscriptions(USER_ID)).thenReturn(List.of(
+                RevenueCatSubscription.builder().store("APP_STORE").active(false)
+                        .expiresAt(Instant.now().minusSeconds(60)).build(),
+                RevenueCatSubscription.builder().store("STRIPE").active(true)
+                        .expiresAt(expiry).build()));
+        when(entitlementRepository.findById(USER_ID)).thenReturn(Optional.of(
+                UserEntitlement.builder().userId(USER_ID).subscribed(false).build()));
+
+        EntitlementResponseDto result = subscriptionService.getEntitlement(USER_ID);
+
+        assertThat(result.getPlan()).isEqualTo("PRO");
+        assertThat(result.getValidUntil()).isEqualTo(expiry);
+        assertThat(result.getBillingProviders()).containsExactly("STRIPE");
+    }
+
+    @Test
+    void expiredRevenueCatSnapshotCannotBecomeLifetimeAccess() {
+        when(revenueCatSubscriptionService.subscriptions(USER_ID)).thenReturn(List.of(
+                RevenueCatSubscription.builder().store("STRIPE").active(true)
+                        .expiresAt(Instant.now().minusSeconds(60)).build()));
+        when(entitlementRepository.findById(USER_ID)).thenReturn(Optional.of(
+                UserEntitlement.builder().userId(USER_ID).subscribed(true).build()));
+
+        assertThat(subscriptionService.getEntitlement(USER_ID).getPlan()).isEqualTo("FREE");
+    }
+
+    @Test
+    void googleRevocationOverridesOlderVerification() {
+        when(revenueCatSubscriptionService.subscriptions(USER_ID)).thenReturn(List.of(
+                RevenueCatSubscription.builder().store("PLAY_STORE").active(false)
+                        .productId("macrotracker_pro:yearly").eventTimestampMs(3000L)
+                        .expiresAt(Instant.now().plusSeconds(3600)).build()));
+        when(subscriptionRepository.findByUserIdOrderByExpiresAtDesc(USER_ID)).thenReturn(List.of(
+                Subscription.builder().userId(USER_ID).productId("macrotracker_pro")
+                        .basePlanId("yearly")
+                        .lastVerifiedAt(Instant.ofEpochMilli(2000))
+                        .status(SubscriptionStatus.PRO_ACTIVE)
+                        .expiresAt(Instant.now().plusSeconds(3600)).build()));
+
+        assertThat(subscriptionService.getEntitlement(USER_ID).getPlan()).isEqualTo("FREE");
     }
 
     @Test

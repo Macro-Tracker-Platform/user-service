@@ -3,6 +3,8 @@ package com.olehprukhnytskyi.macrotrackeruserservice.service;
 import com.olehprukhnytskyi.exception.NotFoundException;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.PromoCodeRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.PromoCodeResponseDto;
+import com.olehprukhnytskyi.macrotrackeruserservice.dto.WebPromoCodeResponseDto;
+import com.olehprukhnytskyi.macrotrackeruserservice.dto.WebSubscriptionEligibilityDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.exception.PromoCodeErrorCode;
 import com.olehprukhnytskyi.macrotrackeruserservice.model.PromoCode;
 import com.olehprukhnytskyi.macrotrackeruserservice.model.PromoCodeClaim;
@@ -36,6 +38,27 @@ public class PromoCodeService {
     private final TrialEligibilityService trialEligibilityService;
     private final UserEntitlementRepository entitlementRepository;
     private final RevenueCatProperties revenueCatProperties;
+
+    @Transactional(readOnly = true)
+    public WebPromoCodeResponseDto validateWebCode(Long userId, PromoCodeRequestDto request,
+                                                  WebSubscriptionEligibilityDto eligibility) {
+        if (!eligibility.checkoutEligible()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, eligibility.reason());
+        }
+        PromoCode promoCode = promoCodeRepository.findByCodeIgnoreCase(normalize(request.getCode()))
+                .orElseThrow(this::invalidCode);
+        requireAvailable(promoCode, Instant.now());
+        if (promoCode.getDiscountPercent() == null || promoCode.getDiscountPercent() <= 0
+                || promoCode.getDiscountPercent() >= 100
+                || subscriptionRepository.existsByUserIdAndPromoCodeIsNotNull(userId)
+                || claimRepository.findById(userId)
+                    .map(claim -> claim.getConsumedAt() != null).orElse(false)) {
+            throw invalidCode();
+        }
+        // Preview only. Checkout must revalidate and reserve the campaign atomically.
+        return new WebPromoCodeResponseDto(promoCode.getCode(),
+                promoCode.getDiscountPercent(), eligibility);
+    }
 
     @Transactional
     public PromoCodeResponseDto validateAndClaim(Long userId, PromoCodeRequestDto request) {
@@ -144,6 +167,12 @@ public class PromoCodeService {
         if (!isAvailable(promoCode, now)) {
             throw invalidCode();
         }
+    }
+
+    long consumedCount(Long promoCodeId) {
+        return subscriptionRepository.countDistinctUsersByPromoCodeId(promoCodeId)
+                + claimRepository.countByPromoCodeIdAndConsumedAtIsNotNullAndSubscriptionIsNull(
+                        promoCodeId);
     }
 
     private boolean isAvailable(PromoCode promoCode, Instant now) {

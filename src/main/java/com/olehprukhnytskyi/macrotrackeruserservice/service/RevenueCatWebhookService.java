@@ -7,10 +7,12 @@ import com.olehprukhnytskyi.macrotrackeruserservice.properties.RevenueCatPropert
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.RevenueCatEventRepository;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.UserEntitlementRepository;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.UserRepository;
+import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.WebCheckoutRepository;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Instant;
 import java.util.Set;
+import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -21,7 +23,8 @@ import org.springframework.web.server.ResponseStatusException;
 @RequiredArgsConstructor
 public class RevenueCatWebhookService {
     private static final Set<String> ACTIVATE_EVENTS = Set.of(
-            "INITIAL_PURCHASE", "RENEWAL");
+            "INITIAL_PURCHASE", "RENEWAL", "UNCANCELLATION", "CANCELLATION",
+            "SUBSCRIPTION_EXTENDED", "BILLING_ISSUE", "REFUND_REVERSED");
     private static final Set<String> DEACTIVATE_EVENTS = Set.of(
             "EXPIRATION", "REVOCATION");
 
@@ -30,6 +33,8 @@ public class RevenueCatWebhookService {
     private final UserEntitlementRepository entitlementRepository;
     private final RevenueCatEventRepository eventRepository;
     private final PromoCodeService promoCodeService;
+    private final RevenueCatSubscriptionService subscriptionService;
+    private final WebCheckoutRepository checkouts;
 
     public void verifyAuthorization(String authorization) {
         String expected = properties.getWebhookAuthorization();
@@ -69,22 +74,32 @@ public class RevenueCatWebhookService {
                     "Invalid RevenueCat webhook payload");
         }
 
+        if (!properties.getEnvironment().equals(event.getEnvironment())
+                && !("TRANSFER".equals(event.getType()) && event.getEnvironment() == null)) {
+            return;
+        }
         if ("TRANSFER".equals(event.getType())) {
             processTransfer(event);
             return;
         }
         Boolean subscribed = subscriptionState(event.getType());
-        if (subscribed == null) {
+        if (subscribed == null || event.getEntitlementIds() == null
+                || !event.getEntitlementIds().contains(properties.getEntitlementId())) {
             return;
         }
         Long userId = parseUserId(event.getAppUserId());
-        userRepository.findByIdForUpdate(userId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
-                        "RevenueCat App User ID does not match a backend user"));
+        if (userRepository.findByIdForUpdate(userId).isEmpty()) {
+            if (checkouts.existsByUserIdAndAccountDeletedAtIsNotNull(userId)) {
+                return;
+            }
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND,
+                    "RevenueCat App User ID does not match a backend user");
+        }
         if (eventRepository.existsById(event.getId())) {
             return;
         }
 
+        subscriptionService.record(userId, event);
         UserEntitlement entitlement = entitlementRepository.findById(userId)
                 .orElse(null);
         Long lastTimestamp = entitlement == null
@@ -123,11 +138,44 @@ public class RevenueCatWebhookService {
         if (eventRepository.existsById(event.getId())) {
             return;
         }
+        Stream.concat(event.getTransferredFrom().stream(),
+                        event.getTransferredTo().stream())
+                .filter(value -> value != null && value.matches("[0-9]+"))
+                .map(Long::valueOf).distinct().sorted()
+                .forEach(userRepository::findByIdForUpdate);
+        if (eventRepository.existsById(event.getId())) {
+            return;
+        }
+        Long destination = event.getTransferredTo().stream()
+                .filter(value -> value != null && value.matches("[0-9]+"))
+                .map(Long::valueOf)
+                .filter(userId -> userRepository.findByIdForUpdate(userId).isPresent())
+                .findFirst().orElse(null);
+        if (destination != null && event.getTransferredFrom().stream()
+                .filter(value -> value != null && value.matches("[0-9]+"))
+                .map(Long::valueOf)
+                .allMatch(userId -> subscriptionService.subscriptions(userId).isEmpty())) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "Transfer requires subscription history reconciliation");
+        }
         for (String appUserId : event.getTransferredFrom()) {
+            if (appUserId != null && appUserId.matches("[0-9]+")) {
+                if (destination == null) {
+                    subscriptionService.detach(Long.valueOf(appUserId),
+                            event.getEventTimestampMs());
+                } else {
+                    subscriptionService.transfer(Long.valueOf(appUserId), destination,
+                            event.getEventTimestampMs());
+                }
+            }
             updateTransferredEntitlement(appUserId, false, event.getEventTimestampMs());
         }
-        for (String appUserId : event.getTransferredTo()) {
-            updateTransferredEntitlement(appUserId, true, event.getEventTimestampMs());
+        if (destination != null) {
+            boolean active = subscriptionService.subscriptions(destination).stream()
+                    .anyMatch(item -> item.isActive()
+                            && item.getExpiresAt().isAfter(Instant.now()));
+            updateTransferredEntitlement(destination.toString(), active,
+                    event.getEventTimestampMs());
         }
         eventRepository.save(RevenueCatEvent.builder()
                 .id(event.getId())

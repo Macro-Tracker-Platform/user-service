@@ -6,6 +6,7 @@ import com.olehprukhnytskyi.macrotrackeruserservice.dto.EntitlementResponseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.GooglePurchaseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.GoogleRtdnRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.model.BillingEvent;
+import com.olehprukhnytskyi.macrotrackeruserservice.model.RevenueCatSubscription;
 import com.olehprukhnytskyi.macrotrackeruserservice.model.Subscription;
 import com.olehprukhnytskyi.macrotrackeruserservice.model.UserEntitlement;
 import com.olehprukhnytskyi.macrotrackeruserservice.properties.GooglePlayProperties;
@@ -22,6 +23,7 @@ import java.util.Base64;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.TreeSet;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
@@ -50,6 +52,8 @@ public class SubscriptionService {
     private final StringRedisTemplate redisTemplate;
     private final AiCreditService aiCreditService;
     private final ObjectMapper objectMapper;
+    private final RevenueCatSubscriptionService revenueCatSubscriptionService;
+    private final WebRevenueCatAccessService webRevenueCatAccessService;
 
     @Transactional
     public EntitlementResponseDto verify(Long userId, GooglePurchaseDto purchase,
@@ -109,19 +113,50 @@ public class SubscriptionService {
 
         UserEntitlement revenueCatEntitlement = userId == null ? null
                 : entitlementRepository.findById(userId).orElse(null);
-        boolean revenueCatManaged = revenueCatEntitlement != null;
-        if (revenueCatManaged && revenueCatEntitlement.isSubscribed()) {
+        List<RevenueCatSubscription> revenueCatSubscriptions =
+                revenueCatSubscriptionService.subscriptions(userId);
+        // Existing boolean-only records need reconciliation before web checkout is enabled.
+        if (revenueCatSubscriptions.isEmpty() && revenueCatEntitlement != null
+                && revenueCatEntitlement.isSubscribed()) {
             return buildLifetimeProEntitlement(userId);
         }
-
-        Subscription subscription = revenueCatManaged ? null : subscriptionRepository
-                    .findByUserIdOrderByExpiresAtDesc(userId)
-                    .stream()
-                    .max(Comparator.comparing((Subscription item) ->
-                            grantsPro(effectiveStatus(item)))
-                            .thenComparing(item -> item.getExpiresAt() == null
-                                    ? Instant.EPOCH : item.getExpiresAt()))
-                    .orElse(null);
+        var billingProviders = new TreeSet<String>();
+        List<Subscription> googleSubscriptions = subscriptionRepository
+                .findByUserIdOrderByExpiresAtDesc(userId)
+                .stream()
+                .filter(item -> useGoogleSnapshot(item, revenueCatSubscriptions,
+                        revenueCatEntitlement))
+                .toList();
+        for (Subscription item : googleSubscriptions) {
+            if (grantsPro(effectiveStatus(item))) {
+                addBillingProvider(billingProviders, item.getProvider());
+            }
+        }
+        Subscription subscription = googleSubscriptions.stream()
+                .max(Comparator.comparing((Subscription item) -> grantsPro(effectiveStatus(item)))
+                        .thenComparing(item -> item.getExpiresAt() == null
+                                ? Instant.EPOCH : item.getExpiresAt()))
+                .orElse(null);
+        for (RevenueCatSubscription item : revenueCatSubscriptions) {
+            if (item.isActive() && item.getExpiresAt().isAfter(Instant.now())) {
+                addBillingProvider(billingProviders, item.getStore());
+            }
+            if (item.isActive() && item.getExpiresAt().isAfter(Instant.now())
+                    && (subscription == null || !grantsPro(effectiveStatus(subscription))
+                        || subscription.getExpiresAt() == null
+                        || item.getExpiresAt().isAfter(subscription.getExpiresAt()))) {
+                subscription = Subscription.builder().userId(userId)
+                        .status(SubscriptionStatus.PRO_ACTIVE)
+                        .expiresAt(item.getExpiresAt()).build();
+            }
+        }
+        if (subscription == null || !grantsPro(effectiveStatus(subscription))) {
+            Subscription refreshed = webRevenueCatAccessService.currentAccess(userId);
+            if (refreshed != null && grantsPro(effectiveStatus(refreshed))) {
+                addBillingProvider(billingProviders, refreshed.getProvider());
+            }
+            subscription = refreshed == null ? subscription : refreshed;
+        }
         SubscriptionStatus status = subscription == null
                 ? SubscriptionStatus.FREE : effectiveStatus(subscription);
         boolean pro = grantsPro(status);
@@ -132,6 +167,7 @@ public class SubscriptionService {
                 .validUntil(subscription == null ? null : subscription.getExpiresAt())
                 .legacyAccess(false)
                 .trialEligible(trialEligibilityService.isEligible(userId))
+                .billingProviders(List.copyOf(billingProviders))
                 .features(EntitlementResponseDto.Features.builder()
                         .nutritionLabelScans(EntitlementResponseDto.ScanAllowance.builder()
                                 .limit(scanAllowance.limit())
@@ -148,7 +184,37 @@ public class SubscriptionService {
                 .build();
     }
 
-    private boolean hasLifetimeProRole(Long userId, String userRolesHeader) {
+    private void addBillingProvider(java.util.Set<String> providers, String store) {
+        if ("GOOGLE_PLAY".equals(store) || "PLAY_STORE".equals(store)) {
+            providers.add("PLAY_STORE");
+        } else if ("APP_STORE".equals(store) || "MAC_APP_STORE".equals(store)) {
+            providers.add("APP_STORE");
+        } else if ("STRIPE".equals(store)) {
+            providers.add("STRIPE");
+        }
+    }
+
+    private boolean useGoogleSnapshot(Subscription subscription,
+                                      List<RevenueCatSubscription> snapshots,
+                                      UserEntitlement legacyEntitlement) {
+        if (snapshots.isEmpty() && legacyEntitlement != null) {
+            return legacyEntitlement.isSubscribed();
+        }
+        // RevenueCat owns access for a product once its snapshot is newer than Google verification.
+        return snapshots.stream().noneMatch(item -> "PLAY_STORE".equals(item.getStore())
+                && matchesGoogleProduct(item, subscription)
+                && (subscription.getLastVerifiedAt() == null
+                    || item.getEventTimestampMs()
+                        >= subscription.getLastVerifiedAt().toEpochMilli()));
+    }
+
+    private boolean matchesGoogleProduct(RevenueCatSubscription snapshot,
+                                         Subscription subscription) {
+        String[] product = snapshot.getProductId().split(":", 2);
+        return product[0].equals(subscription.getProductId());
+    }
+
+    boolean hasLifetimeProRole(Long userId, String userRolesHeader) {
         if (hasLifetimeProRole(userRolesHeader)) {
             return true;
         }

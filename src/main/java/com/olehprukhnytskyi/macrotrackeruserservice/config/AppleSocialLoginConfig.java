@@ -11,9 +11,12 @@ import com.nimbusds.jwt.proc.DefaultJWTClaimsVerifier;
 import com.nimbusds.jwt.proc.DefaultJWTProcessor;
 import com.nimbusds.jwt.proc.JWTProcessor;
 import com.olehprukhnytskyi.macrotrackeruserservice.properties.AppleProperties;
+import com.olehprukhnytskyi.macrotrackeruserservice.properties.WebAuthProperties;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -26,7 +29,8 @@ public class AppleSocialLoginConfig {
 
     @Bean
     @Qualifier("appleJwtProcessor")
-    public JWTProcessor<SecurityContext> appleJwtProcessor(AppleProperties properties)
+    public JWTProcessor<SecurityContext> appleJwtProcessor(
+            AppleProperties properties, WebAuthProperties webAuthProperties)
             throws MalformedURLException {
         DefaultResourceRetriever resourceRetriever = new DefaultResourceRetriever(
                 HTTP_TIMEOUT_MILLIS, HTTP_TIMEOUT_MILLIS, MAX_JWK_SET_BYTES);
@@ -45,7 +49,10 @@ public class AppleSocialLoginConfig {
                 .build();
         DefaultJWTClaimsVerifier<SecurityContext> claimsVerifier =
                 new DefaultJWTClaimsVerifier<>(
-                        properties.getClientIds(),
+                        Stream.concat(properties.getClientIds().stream(),
+                                        Stream.of(webAuthProperties.getAppleServiceId()))
+                                .filter(value -> value != null && !value.isBlank())
+                                .collect(Collectors.toSet()),
                         expectedClaims,
                         Set.of("sub", "iss", "aud", "iat", "exp", "email", "email_verified"),
                         Set.of());

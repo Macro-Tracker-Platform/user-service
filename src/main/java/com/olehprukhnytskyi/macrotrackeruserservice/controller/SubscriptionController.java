@@ -6,29 +6,30 @@ import com.olehprukhnytskyi.macrotrackeruserservice.dto.GoogleRtdnRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.PromoCodeRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.PromoCodeResponseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.RestoreGooglePurchasesRequestDto;
-import com.olehprukhnytskyi.macrotrackeruserservice.service.PromoCodeService;
 import com.olehprukhnytskyi.macrotrackeruserservice.service.SubscriptionService;
 import com.olehprukhnytskyi.util.CustomHeaders;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequiredArgsConstructor
 public class SubscriptionController {
     private final SubscriptionService subscriptionService;
-    private final PromoCodeService promoCodeService;
 
     @PostMapping("/api/subscriptions/promo-codes/validate")
     public ResponseEntity<PromoCodeResponseDto> validatePromoCode(
             @RequestHeader(CustomHeaders.X_USER_ID) Long userId,
             @RequestBody @Valid PromoCodeRequestDto request) {
-        return ResponseEntity.ok(promoCodeService.validateAndClaim(userId, request));
+        throw new ResponseStatusException(HttpStatus.GONE,
+                "In-app promo code redemption has been retired");
     }
 
     @PostMapping("/api/subscriptions/google/verify")

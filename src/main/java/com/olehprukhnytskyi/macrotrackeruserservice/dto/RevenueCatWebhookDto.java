@@ -26,6 +26,23 @@ public class RevenueCatWebhookDto {
         @JsonProperty("period_type")
         private String periodType;
 
+        @JsonProperty("entitlement_ids")
+        private List<String> entitlementIds;
+
+        @JsonProperty("original_transaction_id")
+        private String originalTransactionId;
+
+        @JsonProperty("expiration_at_ms")
+        private Long expirationAtMs;
+
+        @JsonProperty("grace_period_expiration_at_ms")
+        private Long gracePeriodExpirationAtMs;
+
+        private String environment;
+
+        @JsonProperty("cancel_reason")
+        private String cancelReason;
+
         @JsonProperty("purchased_at_ms")
         private Long purchasedAtMs;
 

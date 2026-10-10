@@ -84,7 +84,8 @@ public class UserProfileController {
 
     @Operation(
             summary = "Delete user account",
-            description = "Permanently delete user account and all associated data"
+            description = "Delete the profile after stopping website billing; retain the financial "
+                    + "journal. Store subscriptions require separate cancellation."
     )
     @DeleteMapping
     public ResponseEntity<Void> deleteUser(

@@ -15,6 +15,7 @@ import com.olehprukhnytskyi.macrotrackeruserservice.properties.RevenueCatPropert
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.RevenueCatEventRepository;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.UserEntitlementRepository;
 import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.UserRepository;
+import com.olehprukhnytskyi.macrotrackeruserservice.repository.jpa.WebCheckoutRepository;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,6 +38,12 @@ class RevenueCatWebhookServiceTest {
     @Mock
     private PromoCodeService promoCodeService;
 
+    @Mock
+    private RevenueCatSubscriptionService subscriptionService;
+
+    @Mock
+    private WebCheckoutRepository checkouts;
+
     private RevenueCatWebhookService webhookService;
     private ObjectMapper objectMapper;
 
@@ -46,8 +53,15 @@ class RevenueCatWebhookServiceTest {
         properties.setWebhookAuthorization("Bearer test-secret");
         webhookService = new RevenueCatWebhookService(
                 properties, userRepository, entitlementRepository, eventRepository,
-                promoCodeService);
+                promoCodeService, subscriptionService, checkouts);
         objectMapper = new ObjectMapper();
+    }
+
+    @Test
+    void deletedWebAccountDoesNotRecreateEntitlement() throws Exception {
+        when(checkouts.existsByUserIdAndAccountDeletedAtIsNotNull(USER_ID)).thenReturn(true);
+        webhookService.process(payload("deleted-renewal", "RENEWAL", 1000L));
+        org.mockito.Mockito.verifyNoInteractions(entitlementRepository, subscriptionService);
     }
 
     @Test
@@ -63,7 +77,7 @@ class RevenueCatWebhookServiceTest {
         properties.setWebhookAuthorization("test-secret");
         RevenueCatWebhookService tokenOnlyWebhookService = new RevenueCatWebhookService(
                 properties, userRepository, entitlementRepository, eventRepository,
-                promoCodeService);
+                promoCodeService, subscriptionService, checkouts);
 
         tokenOnlyWebhookService.verifyAuthorization("Bearer test-secret");
     }
@@ -88,6 +102,8 @@ class RevenueCatWebhookServiceTest {
         String json = """
                 {"api_version":"1.0","event":{"id":"promo-1","type":"INITIAL_PURCHASE",
                 "app_user_id":"42","event_timestamp_ms":2000,"purchased_at_ms":1500,
+                "environment":"PRODUCTION",
+                "entitlement_ids":["macro_tracker_calorie_counter_premium"],
                 "store":"APP_STORE","product_id":"yearly_promo_15","period_type":"INTRO"}}
                 """;
 
@@ -103,6 +119,8 @@ class RevenueCatWebhookServiceTest {
         String json = """
                 {"api_version":"1.0","event":{"id":"regular-1","type":"INITIAL_PURCHASE",
                 "app_user_id":"42","event_timestamp_ms":2000,"purchased_at_ms":1500,
+                "environment":"PRODUCTION",
+                "entitlement_ids":["macro_tracker_calorie_counter_premium"],
                 "store":"APP_STORE","product_id":"yearly_promo_15","period_type":"NORMAL"}}
                 """;
 
@@ -152,6 +170,13 @@ class RevenueCatWebhookServiceTest {
     void transferMovesEntitlementToNewBackendUser() throws Exception {
         when(userRepository.findByIdForUpdate(42L)).thenReturn(Optional.of(new User()));
         when(userRepository.findByIdForUpdate(43L)).thenReturn(Optional.of(new User()));
+        when(subscriptionService.subscriptions(42L)).thenReturn(java.util.List.of(
+                com.olehprukhnytskyi.macrotrackeruserservice.model.RevenueCatSubscription
+                        .builder().userId(42L).build()));
+        when(subscriptionService.subscriptions(43L)).thenReturn(java.util.List.of(
+                com.olehprukhnytskyi.macrotrackeruserservice.model.RevenueCatSubscription
+                        .builder().userId(43L).active(true)
+                        .expiresAt(java.time.Instant.now().plusSeconds(3600)).build()));
         UserEntitlement oldEntitlement = UserEntitlement.builder()
                 .userId(42L).subscribed(true).subscriptionEventTimestampMs(1000L)
                 .build();
@@ -173,16 +198,71 @@ class RevenueCatWebhookServiceTest {
 
     @Test
     void cancellationDoesNotRevokeAccess() throws Exception {
+        when(userRepository.findByIdForUpdate(USER_ID)).thenReturn(Optional.of(new User()));
         webhookService.process(payload("event-3", "CANCELLATION", 3000L));
 
-        verify(userRepository, never()).findByIdForUpdate(USER_ID);
+        var captor = org.mockito.ArgumentCaptor.forClass(UserEntitlement.class);
+        verify(entitlementRepository).save(captor.capture());
+        assertThat(captor.getValue().isSubscribed()).isTrue();
+        verify(subscriptionService).record(org.mockito.ArgumentMatchers.eq(USER_ID), any());
+    }
+
+    @Test
+    void sandboxEventCannotGrantProductionPremium() throws Exception {
+        var event = payload("sandbox", "INITIAL_PURCHASE", 1000L);
+        String json = objectMapper.writeValueAsString(event).replace("PRODUCTION", "SANDBOX");
+
+        webhookService.process(objectMapper.readValue(json, RevenueCatWebhookDto.class));
+
+        verify(subscriptionService, never()).record(any(), any());
+        verify(entitlementRepository, never()).save(any());
+    }
+
+    @Test
+    void unrelatedEntitlementCannotGrantPremium() throws Exception {
+        var event = payload("unrelated", "INITIAL_PURCHASE", 1000L);
+        String json = objectMapper.writeValueAsString(event)
+                .replace("macro_tracker_calorie_counter_premium", "unrelated");
+
+        webhookService.process(objectMapper.readValue(json, RevenueCatWebhookDto.class));
+
+        verify(subscriptionService, never()).record(any(), any());
+    }
+
+    @Test
+    void transferWithoutKnownExpirationCannotCreateLifetimeAccess() throws Exception {
+        when(userRepository.findByIdForUpdate(42L)).thenReturn(Optional.of(new User()));
+        when(userRepository.findByIdForUpdate(43L)).thenReturn(Optional.of(new User()));
+        var event = objectMapper.readValue("""
+                {"event":{"id":"transfer-unknown","type":"TRANSFER",
+                "event_timestamp_ms":2000,"transferred_from":["42"],"transferred_to":["43"]}}
+                """, RevenueCatWebhookDto.class);
+
+        assertThatThrownBy(() -> webhookService.process(event))
+                .hasMessageContaining("reconciliation");
+        verify(entitlementRepository, never()).save(any());
+    }
+
+    @Test
+    void transferToAnonymousUserDetachesBackendSnapshots() throws Exception {
+        when(userRepository.findByIdForUpdate(42L)).thenReturn(Optional.of(new User()));
+        var event = objectMapper.readValue("""
+                {"event":{"id":"transfer-anon","type":"TRANSFER",
+                "event_timestamp_ms":2000,"transferred_from":["42"],
+                "transferred_to":["$RCAnonymousID:test"]}}
+                """, RevenueCatWebhookDto.class);
+
+        webhookService.process(event);
+
+        verify(subscriptionService).detach(42L, 2000L);
     }
 
     private RevenueCatWebhookDto payload(String id, String type, long timestamp)
             throws Exception {
         String json = """
                 {"api_version":"1.0","event":{"id":"%s","type":"%s",
-                "app_user_id":"42","event_timestamp_ms":%d}}
+                "app_user_id":"42","event_timestamp_ms":%d,"environment":"PRODUCTION",
+                "entitlement_ids":["macro_tracker_calorie_counter_premium"]}}
                 """.formatted(id, type, timestamp);
         return objectMapper.readValue(json, RevenueCatWebhookDto.class);
     }

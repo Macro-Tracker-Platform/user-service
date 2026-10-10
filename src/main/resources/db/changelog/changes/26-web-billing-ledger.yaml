@@ -1,0 +1,311 @@
+databaseChangeLog:
+  - changeSet:
+      id: 26-web-billing-ledger
+      author: codex
+      changes:
+        - createTable:
+            tableName: web_affiliates
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: name
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: email
+                  type: VARCHAR(320)
+              - column:
+                  name: referrer_id
+                  type: BIGINT
+              - column:
+                  name: active
+                  type: BOOLEAN
+                  constraints:
+                    nullable: false
+        - createTable:
+            tableName: web_checkouts
+            columns:
+              - column:
+                  name: id
+                  type: VARCHAR(36)
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: user_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: plan
+                  type: VARCHAR(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: state
+                  type: VARCHAR(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: price_id
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: success_url
+                  type: TEXT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: cancel_url
+                  type: TEXT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: promo_code_id
+                  type: BIGINT
+              - column:
+                  name: promo_code
+                  type: VARCHAR(64)
+              - column:
+                  name: discount_percent
+                  type: INTEGER
+                  constraints:
+                    nullable: false
+              - column:
+                  name: acquisition_type
+                  type: VARCHAR(32)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: affiliate_id
+                  type: BIGINT
+              - column:
+                  name: referrer_id
+                  type: BIGINT
+              - column:
+                  name: referrer_name
+                  type: VARCHAR(255)
+              - column:
+                  name: partner_name
+                  type: VARCHAR(255)
+              - column:
+                  name: commission_percent
+                  type: DECIMAL(5,2)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: referrer_commission_percent
+                  type: DECIMAL(5,2)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: trial_days
+                  type: INTEGER
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  constraints:
+                    nullable: false
+              - column:
+                  name: expires_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  constraints:
+                    nullable: false
+              - column:
+                  name: stripe_session_id
+                  type: VARCHAR(255)
+                  constraints:
+                    unique: true
+              - column:
+                  name: checkout_url
+                  type: TEXT
+              - column:
+                  name: stripe_subscription_id
+                  type: VARCHAR(255)
+                  constraints:
+                    unique: true
+              - column:
+                  name: receipt_synced_at
+                  type: TIMESTAMP WITH TIME ZONE
+              - column:
+                  name: receipt_sync_requested_at
+                  type: TIMESTAMP WITH TIME ZONE
+        - createTable:
+            tableName: web_billing_events
+            columns:
+              - column:
+                  name: id
+                  type: VARCHAR(255)
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: processed_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  constraints:
+                    nullable: false
+        - createTable:
+            tableName: web_payments
+            columns:
+              - column:
+                  name: id
+                  type: VARCHAR(255)
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: checkout_id
+                  type: VARCHAR(36)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: amount_paid
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: commission_base
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: period_start
+                  type: TIMESTAMP WITH TIME ZONE
+                  constraints:
+                    nullable: false
+              - column:
+                  name: recurring_period
+                  type: BOOLEAN
+                  constraints:
+                    nullable: false
+              - column:
+                  name: currency
+                  type: VARCHAR(3)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: paid_at
+                  type: TIMESTAMP WITH TIME ZONE
+                  constraints:
+                    nullable: false
+              - column:
+                  name: refunded_amount
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: commission_amount
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: referrer_commission_amount
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+        - createTable:
+            tableName: web_payment_refunds
+            columns:
+              - column:
+                  name: id
+                  type: VARCHAR(255)
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: invoice_id
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: amount
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+        - addColumn:
+            tableName: promo_codes
+            columns:
+              - column:
+                  name: web_affiliate_id
+                  type: BIGINT
+        - addForeignKeyConstraint:
+            baseTableName: web_affiliates
+            baseColumnNames: referrer_id
+            referencedTableName: web_affiliates
+            referencedColumnNames: id
+            constraintName: fk_web_affiliates_referrer_id
+            onDelete: RESTRICT
+        - addForeignKeyConstraint:
+            baseTableName: promo_codes
+            baseColumnNames: web_affiliate_id
+            referencedTableName: web_affiliates
+            referencedColumnNames: id
+            constraintName: fk_promo_codes_web_affiliate_id
+            onDelete: RESTRICT
+        - addForeignKeyConstraint:
+            baseTableName: web_checkouts
+            baseColumnNames: user_id
+            referencedTableName: users
+            referencedColumnNames: id
+            constraintName: fk_web_checkouts_user_id
+            onDelete: CASCADE
+        - addForeignKeyConstraint:
+            baseTableName: web_payments
+            baseColumnNames: checkout_id
+            referencedTableName: web_checkouts
+            referencedColumnNames: id
+            constraintName: fk_web_payments_checkout_id
+            onDelete: CASCADE
+        - addForeignKeyConstraint:
+            baseTableName: web_payment_refunds
+            baseColumnNames: invoice_id
+            referencedTableName: web_payments
+            referencedColumnNames: id
+            constraintName: fk_web_payment_refunds_invoice_id
+            onDelete: CASCADE
+        - createIndex:
+            tableName: web_checkouts
+            indexName: idx_web_checkouts_user_id_state
+            columns:
+              - column:
+                  name: user_id
+              - column:
+                  name: state
+        - createIndex:
+            tableName: web_checkouts
+            indexName: idx_web_checkouts_promo_code_id_state
+            columns:
+              - column:
+                  name: promo_code_id
+              - column:
+                  name: state
+        - createIndex:
+            tableName: web_checkouts
+            indexName: idx_web_checkouts_state_receipt_synced_at
+            columns:
+              - column:
+                  name: state
+              - column:
+                  name: receipt_synced_at
+        - createIndex:
+            tableName: web_payments
+            indexName: idx_web_payments_checkout_id
+            columns:
+              - column:
+                  name: checkout_id
+        - createIndex:
+            tableName: web_payment_refunds
+            indexName: idx_web_payment_refunds_invoice_id
+            columns:
+              - column:
+                  name: invoice_id

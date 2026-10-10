@@ -2,6 +2,7 @@ package com.olehprukhnytskyi.macrotrackeruserservice.dto;
 
 import com.olehprukhnytskyi.macrotrackeruserservice.util.SubscriptionStatus;
 import java.time.Instant;
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -17,6 +18,8 @@ public class EntitlementResponseDto {
     private Instant validUntil;
     private boolean legacyAccess;
     private boolean trialEligible;
+    @Builder.Default
+    private List<String> billingProviders = List.of();
     private Features features;
 
     @Data

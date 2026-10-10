@@ -46,6 +46,10 @@ public class PromoCode {
     @JoinColumn(name = "acquisition_manager_id")
     private AcquisitionManager acquisitionManager;
 
+    @ManyToOne
+    @JoinColumn(name = "web_affiliate_id")
+    private WebAffiliate webAffiliate;
+
     @Column(nullable = false)
     private Integer discountPercent;
 

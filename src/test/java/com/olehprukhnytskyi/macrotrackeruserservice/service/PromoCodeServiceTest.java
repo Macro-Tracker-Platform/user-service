@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 import com.olehprukhnytskyi.exception.NotFoundException;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.PromoCodeRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.PromoCodeResponseDto;
+import com.olehprukhnytskyi.macrotrackeruserservice.dto.WebSubscriptionEligibilityDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.exception.PromoCodeErrorCode;
 import com.olehprukhnytskyi.macrotrackeruserservice.model.PromoCode;
 import com.olehprukhnytskyi.macrotrackeruserservice.model.PromoCodeClaim;
@@ -67,6 +68,34 @@ class PromoCodeServiceTest {
                 .yearlyOfferId("partner-20-yearly")
                 .active(true)
                 .build();
+    }
+
+    @Test
+    void webCodePreviewAllowsReturningUserWithoutGrantOrClaim() {
+        PromoCodeRequestDto request = new PromoCodeRequestDto();
+        request.setCode(" friend20 ");
+        when(promoCodeRepository.findByCodeIgnoreCase("FRIEND20"))
+                .thenReturn(Optional.of(promoCode));
+        var eligibility = new WebSubscriptionEligibilityDto(true, false, false, "ELIGIBLE", null);
+
+        var result = promoCodeService.validateWebCode(USER_ID, request, eligibility);
+
+        assertThat(result.discountPercent()).isEqualTo(20);
+        assertThat(result.eligibility().trialEligible()).isFalse();
+        verify(claimRepository, never()).save(org.mockito.ArgumentMatchers.any());
+        verify(entitlementRepository, never()).save(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void webCodeCannotOverrideActiveSubscription() {
+        var eligibility = new WebSubscriptionEligibilityDto(
+                false, false, false, "EXISTING_ACCESS", null);
+
+        assertThatThrownBy(() -> promoCodeService.validateWebCode(
+                USER_ID, new PromoCodeRequestDto(), eligibility))
+                .hasMessageContaining("EXISTING_ACCESS");
+        verify(promoCodeRepository, never()).findByCodeIgnoreCase(
+                org.mockito.ArgumentMatchers.any());
     }
 
     @Test
