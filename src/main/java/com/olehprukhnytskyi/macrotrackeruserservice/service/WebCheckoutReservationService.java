@@ -118,6 +118,40 @@ public class WebCheckoutReservationService {
     }
 
     @Transactional
+    public WebCheckout cancel(Long userId, String id) {
+        // Match creation/deletion lock order; another account must never reach Stripe.
+        userRepository.findByIdForUpdate(userId).orElseThrow(() ->
+                new ResponseStatusException(HttpStatus.NOT_FOUND, "ACCOUNT_NOT_FOUND"));
+        WebCheckout checkout = checkoutRepository.findByIdForUpdate(id).orElseThrow(() ->
+                new ResponseStatusException(HttpStatus.NOT_FOUND, "CHECKOUT_NOT_FOUND"));
+        if (!userId.equals(checkout.getUserId()) || checkout.getAccountDeletedAt() != null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "CHECKOUT_NOT_FOUND");
+        }
+        if (!PENDING.contains(checkout.getState())) {
+            return checkout;
+        }
+        JsonNode session = checkout.getStripeSessionId() == null
+                ? stripe.findSession(checkout).orElseThrow(() ->
+                    conflict("CHECKOUT_RECONCILIATION_REQUIRED"))
+                : stripe.session(checkout.getStripeSessionId());
+        applySession(checkout, session);
+        if (checkout.getState() == WebCheckoutState.OPEN) {
+            try {
+                session = stripe.expireSession(checkout.getStripeSessionId());
+            } catch (ResponseStatusException exception) {
+                // A payment or expiry may have won the race, or the response was lost.
+                session = stripe.session(checkout.getStripeSessionId());
+            }
+            applySession(checkout, session);
+            if (checkout.getState() == WebCheckoutState.OPEN) {
+                throw conflict("CHECKOUT_CANCELLATION_UNCONFIRMED");
+            }
+        }
+        // COMPLETED is returned and committed, never canceled/refunded as a subscription.
+        return checkout;
+    }
+
+    @Transactional
     public WebCheckout attach(String id, JsonNode session) {
         WebCheckout checkout = checkoutRepository.findByIdForUpdate(id).orElseThrow();
         if (checkout.getAccountDeletedAt() == null) {
@@ -146,9 +180,11 @@ public class WebCheckoutReservationService {
                 throw conflict("CHECKOUT_SUBSCRIPTION_MISSING");
             }
             bindSubscription(checkout, subscription);
-        } else if (checkout.getState() != WebCheckoutState.COMPLETED) {
+        } else if (checkout.getState() != WebCheckoutState.COMPLETED
+                && checkout.getState() != WebCheckoutState.EXPIRED) {
             if ("expired".equals(status)) {
                 checkout.setState(WebCheckoutState.EXPIRED);
+                checkout.setCheckoutUrl(null);
             } else if ("open".equals(status)) {
                 checkout.setState(WebCheckoutState.OPEN);
                 checkout.setCheckoutUrl(session.path("url").asText());

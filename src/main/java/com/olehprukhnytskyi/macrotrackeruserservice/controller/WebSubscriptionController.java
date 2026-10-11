@@ -42,6 +42,12 @@ public class WebSubscriptionController {
         return checkoutService.status(userId, id);
     }
 
+    @PostMapping("/checkouts/{id}/cancel")
+    public WebCheckoutResponseDto cancelCheckout(
+            @RequestHeader(CustomHeaders.X_USER_ID) Long userId, @PathVariable String id) {
+        return checkoutService.cancel(userId, id);
+    }
+
     @GetMapping("/eligibility")
     public WebSubscriptionEligibilityDto eligibility(
             @RequestHeader(CustomHeaders.X_USER_ID) Long userId,

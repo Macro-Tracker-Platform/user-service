@@ -2,12 +2,14 @@ package com.olehprukhnytskyi.macrotrackeruserservice.controller;
 
 import com.nimbusds.jwt.SignedJWT;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.AuthResponseDto;
+import com.olehprukhnytskyi.macrotrackeruserservice.dto.GoogleWebCodeRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.LoginRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.SocialTokenRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.WebAuthSessionDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.properties.JwtProperties;
 import com.olehprukhnytskyi.macrotrackeruserservice.properties.WebAuthProperties;
 import com.olehprukhnytskyi.macrotrackeruserservice.service.AuthService;
+import com.olehprukhnytskyi.macrotrackeruserservice.service.GoogleWebOAuthService;
 import com.olehprukhnytskyi.util.AuthProvider;
 import jakarta.validation.Valid;
 import java.nio.charset.StandardCharsets;
@@ -39,11 +41,13 @@ public class WebAuthController {
     private final AuthService auth;
     private final WebAuthProperties properties;
     private final JwtProperties jwtProperties;
+    private final GoogleWebOAuthService googleOAuth;
 
     @GetMapping("/config")
     public ResponseEntity<Map<String, String>> config() {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(Map.of(
                 "googleClientId", properties.getGoogleClientId(),
+                "googleCodeLoginEnabled", Boolean.toString(googleOAuth.configured()),
                 "appleServiceId", properties.getAppleServiceId(),
                 "appleRedirectUri", properties.getAppleRedirectUri()));
     }
@@ -91,6 +95,22 @@ public class WebAuthController {
         // Web login cannot bypass the app's required profile onboarding to create an account.
         request.setUserDetails(null);
         return session(auth.authenticateWithSocial(request));
+    }
+
+    @PostMapping("/google/code")
+    public ResponseEntity<WebAuthSessionDto> googleCode(
+            @RequestHeader(value = "Origin", required = false) String origin,
+            @CookieValue(name = NONCE, required = false) String nonce,
+            @RequestBody @Valid GoogleWebCodeRequestDto request) {
+        requireOrigin(origin);
+        // The HttpOnly challenge binds the popup response to this browser (login CSRF).
+        if (nonce == null || !MessageDigest.isEqual(nonce.getBytes(StandardCharsets.UTF_8),
+                request.state().getBytes(StandardCharsets.UTF_8))) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "SOCIAL_LOGIN_INVALID");
+        }
+        String token = googleOAuth.exchange(request.code(), origin);
+        return session(auth.authenticateWithSocial(
+                new SocialTokenRequestDto(token, AuthProvider.GOOGLE)));
     }
 
     @PostMapping("/refresh")

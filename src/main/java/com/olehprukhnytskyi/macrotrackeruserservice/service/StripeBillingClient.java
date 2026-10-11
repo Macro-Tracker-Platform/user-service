@@ -147,7 +147,7 @@ public class StripeBillingClient {
 
     public JsonNode expireSession(String id) {
         return post("/checkout/sessions/" + id + "/expire", new LinkedMultiValueMap<>(),
-                "delete-account-expire-" + id);
+                "checkout-expire-" + id);
     }
 
     public JsonNode cancelSubscription(String id) {

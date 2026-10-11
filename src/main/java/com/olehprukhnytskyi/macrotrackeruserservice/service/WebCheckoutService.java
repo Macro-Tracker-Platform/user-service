@@ -44,6 +44,10 @@ public class WebCheckoutService {
         return response(checkout);
     }
 
+    public WebCheckoutResponseDto cancel(Long userId, String id) {
+        return response(reservations.cancel(userId, id));
+    }
+
     private WebCheckoutResponseDto response(WebCheckout checkout) {
         return new WebCheckoutResponseDto(checkout.getId(), checkout.getState().name(),
                 checkout.getCheckoutUrl(), checkout.getExpiresAt());

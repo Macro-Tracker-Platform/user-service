@@ -19,6 +19,7 @@ import com.olehprukhnytskyi.macrotrackeruserservice.exception.HttpStatusExceptio
 import com.olehprukhnytskyi.macrotrackeruserservice.properties.JwtProperties;
 import com.olehprukhnytskyi.macrotrackeruserservice.properties.WebAuthProperties;
 import com.olehprukhnytskyi.macrotrackeruserservice.service.AuthService;
+import com.olehprukhnytskyi.macrotrackeruserservice.service.GoogleWebOAuthService;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
@@ -27,12 +28,14 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 class WebAuthControllerTest {
     private final AuthService auth = mock(AuthService.class);
+    private final GoogleWebOAuthService googleOAuth = mock(GoogleWebOAuthService.class);
     private final WebAuthProperties properties = new WebAuthProperties();
     private final JwtProperties jwt = new JwtProperties();
 
     private MockMvc mvc() {
         jwt.setRefreshTokenTtlDays(30L);
-        return MockMvcBuilders.standaloneSetup(new WebAuthController(auth, properties, jwt))
+        return MockMvcBuilders.standaloneSetup(new WebAuthController(
+                        auth, properties, jwt, googleOAuth))
                 .setControllerAdvice(new GlobalExceptionHandler(), new HttpStatusExceptionHandler())
                 .build();
     }
@@ -132,6 +135,55 @@ class WebAuthControllerTest {
                 .cookie(new Cookie("__Host-mt_refresh", "old")))
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.detail").value("An unexpected error occurred"));
+    }
+
+    @Test
+    void googleCodeRequiresMatchingBrowserChallengeBeforeExchange() throws Exception {
+        var mvc = mvc();
+        mvc.perform(post("/api/auth/web/google/code").header("Origin", "https://macrotracker.uk")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"code\":\"code\",\"state\":\"state\"}"))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(post("/api/auth/web/google/code").header("Origin", "https://macrotracker.uk")
+                .cookie(new Cookie("__Host-mt_nonce", "other"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"code\":\"code\",\"state\":\"state\"}"))
+                .andExpect(status().isUnauthorized());
+        verifyNoInteractions(auth, googleOAuth);
+    }
+
+    @Test
+    void googleCodeVerifiedByProviderCreatesSecureWebSession() throws Exception {
+        when(googleOAuth.exchange("code", "https://macrotracker.uk")).thenReturn("verified-token");
+        when(auth.authenticateWithSocial(any()))
+                .thenReturn(new AuthResponseDto("access", "refresh"));
+        var response = mvc().perform(post("/api/auth/web/google/code")
+                .header("Origin", "https://macrotracker.uk")
+                .cookie(new Cookie("__Host-mt_nonce", "state"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"code\":\"code\",\"state\":\"state\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.accessToken").value("access"))
+                .andExpect(jsonPath("$.refreshToken").doesNotExist()).andReturn().getResponse();
+        assertThat(response.getHeaders("Set-Cookie")).anySatisfy(cookie ->
+                assertThat(cookie).contains("__Host-mt_refresh=refresh", "Secure", "HttpOnly"));
+        org.mockito.Mockito.verify(auth).authenticateWithSocial(
+                org.mockito.ArgumentMatchers.argThat(request ->
+                        request.getProvider() == com.olehprukhnytskyi.util.AuthProvider.GOOGLE
+                        && request.getToken().equals("verified-token")
+                        && request.getUserDetails() == null));
+    }
+
+    @Test
+    void googleCodeRejectsCrossOriginAndDoesNotExposeSecretInConfig() throws Exception {
+        properties.setGoogleClientSecret("server-secret");
+        mvc().perform(post("/api/auth/web/google/code").header("Origin", "https://evil.example")
+                .cookie(new Cookie("__Host-mt_nonce", "state"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"code\":\"code\",\"state\":\"state\"}"))
+                .andExpect(status().isForbidden());
+        mvc().perform(get("/api/auth/web/config")).andExpect(status().isOk())
+                .andExpect(jsonPath("$.googleClientSecret").doesNotExist());
+        verifyNoInteractions(auth);
     }
 
 }

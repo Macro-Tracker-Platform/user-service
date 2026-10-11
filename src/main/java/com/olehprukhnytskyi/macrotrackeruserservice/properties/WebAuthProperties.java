@@ -11,6 +11,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class WebAuthProperties {
     private Set<String> allowedOrigins = Set.of("https://macrotracker.uk");
     private String googleClientId = "";
+    private String googleClientSecret = "";
     private String appleServiceId = "";
     private String appleRedirectUri = "";
 }
