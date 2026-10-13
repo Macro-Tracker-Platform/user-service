@@ -8,6 +8,8 @@ import com.olehprukhnytskyi.macrotrackeruserservice.dto.AdaptiveCalorieEvaluatio
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.AdaptiveCalorieEvaluationRequestDto.DailyCalorieSampleDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.AdaptiveCalorieEvaluationRequestDto.WeightSampleDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.AdaptiveCalorieRecommendationDto;
+import com.olehprukhnytskyi.macrotrackeruserservice.dto.EffectiveGoalResponseDto;
+import com.olehprukhnytskyi.macrotrackeruserservice.dto.GoalResponseDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.dto.UserDetailsRequestDto;
 import com.olehprukhnytskyi.macrotrackeruserservice.mapper.UserProfileMapper;
 import com.olehprukhnytskyi.macrotrackeruserservice.model.UserProfile;
@@ -50,7 +52,24 @@ class AdaptiveCalorieCalculatorServiceTest {
         profile = profile(Goal.LOSE, "-0.40", 2200);
         when(userProfileRepository.findById(USER_ID)).thenReturn(Optional.of(profile));
         when(goalScheduleService.lastGoalChange(USER_ID)).thenReturn(Optional.empty());
+        lenient().when(goalScheduleService.resolveEffective(USER_ID, LocalDate.now()))
+                .thenAnswer(call -> EffectiveGoalResponseDto.builder()
+                        .baseGoal(GoalResponseDto.builder().calories(profile.getCalories()).build())
+                        .build());
         stubCalorieFloorProfile();
+    }
+
+    @Test
+    void customGoalIsTheBaselineForGuidance() {
+        when(goalScheduleService.resolveEffective(USER_ID, LocalDate.now()))
+                .thenReturn(EffectiveGoalResponseDto.builder()
+                        .baseGoal(GoalResponseDto.builder().calories(2000).build()).build());
+        LocalDate changed = LocalDate.now().minusDays(14);
+        when(goalScheduleService.lastGoalChange(USER_ID)).thenReturn(Optional.of(changed));
+        AdaptiveCalorieRecommendationDto result = service.evaluate(USER_ID, request(15, -0.10));
+        assertThat(result.getCurrentCalories()).isEqualTo(2000);
+        assertThat(result.getSuggestedCalories()).isEqualTo(1900);
+        assertThat(result.getGoalRevision()).isEqualTo(changed);
     }
 
     @Test

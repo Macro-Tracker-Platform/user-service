@@ -75,6 +75,9 @@ public class AdaptiveCalorieCalculatorService {
         List<WeightSampleDto> weights = smoothWeightsEma(rawWeights);
         int spanDays = weightSpanDays(weights);
         Optional<LocalDate> lastGoalChange = goalScheduleService.lastGoalChange(userId);
+        int currentCalories = goalScheduleService.resolveEffective(userId, today)
+                .getBaseGoal().getCalories();
+        LocalDate goalRevision = lastGoalChange.orElse(LocalDate.of(1970, 1, 1));
         BigDecimal trend = regressionTrend(weights);
         BigDecimal currentWeight = currentWeight(profile, rawWeights);
         BigDecimal targetTrend = WeeklyWeightChangePolicy.resolve(
@@ -83,7 +86,7 @@ public class AdaptiveCalorieCalculatorService {
         if (currentWeight.signum() <= 0) {
             int loggedDays = normalizedCalories(request, cutoff, today,
                     ABSOLUTE_MIN_COMPLETE_DAY_CALORIES).size();
-            return base(profile, loggedDays, weights.size(), spanDays, trend)
+            return base(currentCalories, goalRevision, loggedDays, weights.size(), spanDays, trend)
                     .eligible(false)
                     .targetKgPerWeek(targetTrend)
                     .nextCheckInDate(nextCheckIn)
@@ -113,10 +116,10 @@ public class AdaptiveCalorieCalculatorService {
                     ? CalorieCalculatorService.calculateMaintenanceCalories(
                             calorieFloorProfile)
                     : Math.max(maintenance, calorieFloor);
-            return base(profile, loggedDays, weights.size(), spanDays, trend)
+            return base(currentCalories, goalRevision, loggedDays, weights.size(), spanDays, trend)
                     .eligible(true)
                     .suggestedCalories(suggestedCalories)
-                    .calorieDelta(suggestedCalories - profile.getCalories())
+                    .calorieDelta(suggestedCalories - currentCalories)
                     .targetKgPerWeek(BigDecimal.ZERO.setScale(2))
                     .estimatedMaintenanceCalories(suggestedCalories)
                     .estimatedWeeksToGoal(0)
@@ -131,7 +134,7 @@ public class AdaptiveCalorieCalculatorService {
         LocalDate goalDate = weeksToGoal == null ? null : today.plusWeeks(weeksToGoal);
 
         if (!blockers.isEmpty()) {
-            return base(profile, loggedDays, weights.size(), spanDays, trend)
+            return base(currentCalories, goalRevision, loggedDays, weights.size(), spanDays, trend)
                     .eligible(false)
                     .targetKgPerWeek(targetTrend)
                     .estimatedMaintenanceCalories(maintenance)
@@ -150,11 +153,11 @@ public class AdaptiveCalorieCalculatorService {
         Decision decision = decide(profile.getGoal(), trend, targetTrend,
                 currentWeight, adjustmentStep, conservative);
         if (decision.delta() < 0
-                && profile.getCalories() + decision.delta() < calorieFloor) {
+                && currentCalories + decision.delta() < calorieFloor) {
             decision = new Decision(0, "BMR_FLOOR");
         }
-        int suggestedCalories = profile.getCalories() + decision.delta();
-        return base(profile, loggedDays, weights.size(), spanDays, trend)
+        int suggestedCalories = currentCalories + decision.delta();
+        return base(currentCalories, goalRevision, loggedDays, weights.size(), spanDays, trend)
                 .eligible(true)
                 .suggestedCalories(suggestedCalories)
                 .calorieDelta(decision.delta())
@@ -169,7 +172,7 @@ public class AdaptiveCalorieCalculatorService {
     }
 
     private AdaptiveCalorieRecommendationDto.AdaptiveCalorieRecommendationDtoBuilder base(
-            UserProfile profile, int loggedDays, int weights, int spanDays,
+            int currentCalories, LocalDate goalRevision, int loggedDays, int weights, int spanDays,
             BigDecimal trend) {
         return AdaptiveCalorieRecommendationDto.builder()
                 .loggedDays(loggedDays)
@@ -177,7 +180,8 @@ public class AdaptiveCalorieCalculatorService {
                 .weightEntries(weights)
                 .requiredWeightEntries(REQUIRED_WEIGHTS)
                 .weightSpanDays(spanDays)
-                .currentCalories(profile.getCalories())
+                .currentCalories(currentCalories)
+                .goalRevision(goalRevision)
                 .observedKgPerWeek(trend);
     }
 
